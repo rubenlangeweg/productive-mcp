@@ -1,6 +1,6 @@
 {
   "name": "productive-mcp-rb2",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "type": "module",
   "main": "./build/index.js",
   "bin": {
