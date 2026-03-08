@@ -1,6 +1,6 @@
 {
   "name": "productive-mcp-rb2",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "main": "./build/index.js",
   "bin": {
@@ -30,16 +30,16 @@
     "project-management",
     "rb2"
   ],
-  "author": "jayat3dn",
+  "author": "rubenlangeweg",
   "license": "ISC",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/berwickgeek/productive-mcp.git"
+    "url": "git+https://github.com/rubenlangeweg/productive-mcp.git"
   },
   "bugs": {
-    "url": "https://github.com/berwickgeek/productive-mcp/issues"
+    "url": "https://github.com/rubenlangeweg/productive-mcp/issues"
   },
-  "homepage": "https://github.com/berwickgeek/productive-mcp#readme",
+  "homepage": "https://github.com/rubenlangeweg/productive-mcp#readme",
   "engines": {
     "node": ">=18.0.0"
   },
