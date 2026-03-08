@@ -743,15 +743,44 @@ export class ProductiveAPIClient {
     return this.getAllPages('services', qp);
   }
 
-  /** List resource bookings */
-  async listBookings(params?: { after?: string; before?: string; person_id?: string; project_id?: string }): Promise<any[]> {
+  /** List resource bookings (raw, no included resolution) */
+  async listBookings(params?: { after?: string; before?: string; person_id?: string }): Promise<any[]> {
     const qp = new URLSearchParams();
     if (params?.after) qp.set('filter[after]', params.after);
     if (params?.before) qp.set('filter[before]', params.before);
     if (params?.person_id) qp.set('filter[person_id]', params.person_id);
-    if (params?.project_id) qp.set('filter[project_id]', params.project_id);
-    qp.set('include', 'person,project,service');
     return this.getAllPages('bookings', qp);
+  }
+
+  /** List bookings with included person + service.deal.project chain for name resolution */
+  async listBookingsWithIncluded(params?: { after?: string; before?: string; person_id?: string }): Promise<{ bookings: any[]; included: any[] }> {
+    const qp = new URLSearchParams();
+    if (params?.after) qp.set('filter[after]', params.after);
+    if (params?.before) qp.set('filter[before]', params.before);
+    if (params?.person_id) qp.set('filter[person_id]', params.person_id);
+    qp.set('include', 'person,service.deal.project');
+    qp.set('page[size]', '200');
+
+    const bookings: any[] = [];
+    const includedMap: Record<string, any> = {};
+    let page = 1;
+
+    while (true) {
+      qp.set('page[number]', page.toString());
+      const url = `${this.config.PRODUCTIVE_API_BASE_URL}bookings?${qp.toString()}`;
+      const resp = await fetch(url, { headers: this.getHeaders() as Record<string, string> });
+      if (!resp.ok) throw new Error(`Bookings API error ${resp.status}`);
+      const json = await resp.json() as { data: any[]; included?: any[]; meta?: { total_count?: number } };
+      bookings.push(...json.data);
+      for (const item of json.included ?? []) {
+        includedMap[`${item.type}:${item.id}`] = item;
+      }
+      const total = json.meta?.total_count ?? bookings.length;
+      if (bookings.length >= total) break;
+      page++;
+    }
+
+    return { bookings, included: Object.values(includedMap) };
   }
 
   /** List all people (full fetch) */
