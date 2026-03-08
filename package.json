@@ -1,11 +1,10 @@
 {
   "name": "productive-mcp-rb2",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "type": "module",
   "main": "./build/index.js",
   "bin": {
-    "productive-mcp": "./build/index.js",
-    "productive-mcp-rb2": "./build/index.js"
+    "productive-mcp-rb2": "build/index.js"
   },
   "files": [
     "build",
