@@ -709,6 +709,57 @@ export class ProductiveAPIClient {
    * // Position task 3 between tasks 1 and 2
    * await client.repositionTask('3', { move_after_id: '1', move_before_id: '2' });
    */
+  // ─── rb2 Extensions ────────────────────────────────────────────────────────
+
+  /** Paginate through ALL pages of a resource and return all items */
+  async getAllPages<T>(path: string, baseParams: URLSearchParams): Promise<T[]> {
+    const results: T[] = [];
+    let page = 1;
+    while (true) {
+      baseParams.set('page[number]', page.toString());
+      baseParams.set('page[size]', '200');
+      const url = `${this.config.PRODUCTIVE_API_BASE_URL}${path}?${baseParams.toString()}`;
+      const resp = await fetch(url, { headers: this.getHeaders() as Record<string, string> });
+      if (!resp.ok) throw new Error(`API error ${resp.status} on ${path}`);
+      const json = await resp.json() as { data: T[]; meta?: { total_count?: number } };
+      results.push(...json.data);
+      const total = json.meta?.total_count ?? results.length;
+      if (results.length >= total) break;
+      page++;
+    }
+    return results;
+  }
+
+  /** List all deals/budgets org-wide or filtered by project */
+  async listDeals(params?: { project_id?: string; budget_type?: number }): Promise<any[]> {
+    const qp = new URLSearchParams();
+    if (params?.project_id) qp.set('filter[project_id]', params.project_id);
+    if (params?.budget_type) qp.set('filter[budget_type]', params.budget_type.toString());
+    return this.getAllPages('deals', qp);
+  }
+
+  /** List services for a deal */
+  async listServicesForDeal(dealId: string): Promise<any[]> {
+    const qp = new URLSearchParams({ 'filter[deal_id]': dealId });
+    return this.getAllPages('services', qp);
+  }
+
+  /** List resource bookings */
+  async listBookings(params?: { after?: string; before?: string; person_id?: string; project_id?: string }): Promise<any[]> {
+    const qp = new URLSearchParams();
+    if (params?.after) qp.set('filter[after]', params.after);
+    if (params?.before) qp.set('filter[before]', params.before);
+    if (params?.person_id) qp.set('filter[person_id]', params.person_id);
+    if (params?.project_id) qp.set('filter[project_id]', params.project_id);
+    qp.set('include', 'person,project,service');
+    return this.getAllPages('bookings', qp);
+  }
+
+  /** List all people (full fetch) */
+  async listAllPeople(): Promise<any[]> {
+    return this.getAllPages('people', new URLSearchParams());
+  }
+
   async repositionTask(
     taskId: string, 
     attributes: { 

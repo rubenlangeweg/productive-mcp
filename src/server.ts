@@ -22,6 +22,9 @@ import { moveTaskToList, moveTaskToListTool } from './tools/task-list-move.js';
 import { addToBacklog, addToBacklogTool } from './tools/task-backlog.js';
 import { taskRepositionTool, taskRepositionDefinition, taskRepositionSchema } from './tools/task-reposition.js';
 import { generateTimesheetPrompt, timesheetPromptDefinition, generateQuickTimesheetPrompt, quickTimesheetPromptDefinition } from './prompts/timesheet.js';
+import { getBudgetBurnTool, getBudgetBurnTool_handler } from './tools/budgets.js';
+import { getResourcePlanTool, getOverbookedPeopleTool, getResourcePlanHandler, getOverbookedPeopleHandler } from './tools/bookings.js';
+import { getOrgOverviewTool, getOrgOverviewHandler } from './tools/org.js';
 
 export async function createServer() {
   // Initialize API client and config early to check user context
@@ -75,6 +78,10 @@ export async function createServer() {
       moveTaskToListTool,
       addToBacklogTool,
       taskRepositionDefinition,
+      getBudgetBurnTool,
+      getResourcePlanTool,
+      getOverbookedPeopleTool,
+      getOrgOverviewTool,
     ],
   }));
   
@@ -173,6 +180,18 @@ export async function createServer() {
         }
         return await taskRepositionTool(apiClient, args as z.infer<typeof taskRepositionSchema>);
         
+      case 'get_budget_burn':
+        return await getBudgetBurnTool_handler(apiClient, args);
+
+      case 'get_resource_plan':
+        return await getResourcePlanHandler(apiClient, args);
+
+      case 'get_overbooked_people':
+        return await getOverbookedPeopleHandler(apiClient, args);
+
+      case 'get_org_overview':
+        return await getOrgOverviewHandler(apiClient, args);
+
       default:
         throw new Error(`Unknown tool: ${name}`);
     }

@@ -1,14 +1,16 @@
 {
-  "name": "productive-mcp",
-  "version": "1.0.1",
+  "name": "productive-mcp-rb2",
+  "version": "1.0.0",
   "type": "module",
   "main": "./build/index.js",
   "bin": {
-    "productive-mcp": "./build/index.js"
+    "productive-mcp": "./build/index.js",
+    "productive-mcp-rb2": "./build/index.js"
   },
   "files": [
     "build",
-    "README.md"
+    "README.md",
+    "README-rb2.md"
   ],
   "scripts": {
     "build": "tsc && chmod +x build/index.js",
@@ -25,7 +27,8 @@
     "claude",
     "model-context-protocol",
     "ai",
-    "project-management"
+    "project-management",
+    "rb2"
   ],
   "author": "jayat3dn",
   "license": "ISC",
@@ -40,7 +43,7 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "description": "MCP server for Productive.io API integration",
+  "description": "Productive.io MCP server — extended for rb2 delivery operations",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.13.2",
     "dotenv": "^16.6.0",
