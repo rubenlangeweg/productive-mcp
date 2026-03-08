@@ -731,10 +731,9 @@ export class ProductiveAPIClient {
   }
 
   /** List all deals/budgets org-wide or filtered by project */
-  async listDeals(params?: { project_id?: string; budget_type?: number }): Promise<any[]> {
+  async listDeals(params?: { project_id?: string }): Promise<any[]> {
     const qp = new URLSearchParams();
     if (params?.project_id) qp.set('filter[project_id]', params.project_id);
-    if (params?.budget_type) qp.set('filter[budget_type]', params.budget_type.toString());
     return this.getAllPages('deals', qp);
   }
 
