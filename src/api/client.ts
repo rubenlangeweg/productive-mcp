@@ -777,15 +777,6 @@ export class ProductiveAPIClient {
     return this.getAllPages('services', qp);
   }
 
-  /** List resource bookings (raw, no included resolution) */
-  async listBookings(params?: { after?: string; before?: string; person_id?: string }): Promise<any[]> {
-    const qp = new URLSearchParams();
-    if (params?.after) qp.set('filter[after]', params.after);
-    if (params?.before) qp.set('filter[before]', params.before);
-    if (params?.person_id) qp.set('filter[person_id]', params.person_id);
-    return this.getAllPages('bookings', qp);
-  }
-
   /** List bookings with included person + service.deal.project chain for name resolution */
   async listBookingsWithIncluded(params?: { after?: string; before?: string; person_id?: string }): Promise<{ bookings: any[]; included: any[] }> {
     const qp = new URLSearchParams();
