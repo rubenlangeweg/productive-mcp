@@ -84,3 +84,37 @@ Same environment variables as the base `productive-mcp`:
 npm install
 npm run build
 ```
+
+## Updating local MCP install
+
+Choose the update flow based on your setup:
+
+- `npx` config: restart your MCP host and it will pull the latest published package.
+- Global install:
+  ```bash
+  npm install -g productive-mcp-rb2@latest
+  npm ls -g productive-mcp-rb2 --depth=0
+  ```
+- Local checkout (`node /path/to/build/index.js`):
+  ```bash
+  git pull
+  npm install
+  npm run build
+  ```
+
+After updating, restart Claude Desktop / Cursor / Claude Code to reload the server binary.
+
+## Automated npm publishing
+
+GitHub Actions workflow: `.github/workflows/npm-publish.yml`
+
+- Publishes on every push to `main`
+- Skips publishing if current `package.json` version already exists on npm
+- Requires repository secret `NPM_TOKEN`
+
+Release with:
+
+```bash
+npm version patch
+git push
+```

@@ -1,0 +1,70 @@
+name: Publish to npm
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: "https://registry.npmjs.org"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build package
+        run: npm run build
+
+      - name: Read package metadata
+        id: package
+        run: |
+          echo "name=$(node -p "require('./package.json').name")" >> "$GITHUB_OUTPUT"
+          echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Check npm for existing version
+        id: npm_check
+        run: |
+          set +e
+          PUBLISHED_VERSION="$(npm view "${{ steps.package.outputs.name }}" version 2>/dev/null)"
+          STATUS=$?
+          set -e
+
+          if [ $STATUS -ne 0 ] || [ -z "$PUBLISHED_VERSION" ]; then
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+            echo "published_version=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$PUBLISHED_VERSION" = "${{ steps.package.outputs.version }}" ]; then
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "published_version=$PUBLISHED_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Publish package
+        if: steps.npm_check.outputs.already_published != 'true'
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Skip publish (version already on npm)
+        if: steps.npm_check.outputs.already_published == 'true'
+        run: |
+          echo "Skipping publish."
+          echo "Version ${{ steps.package.outputs.version }} is already published."

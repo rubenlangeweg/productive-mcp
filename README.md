@@ -39,6 +39,51 @@ npx productive-mcp-rb2
 npm install -g productive-mcp-rb2
 ```
 
+## Updating your local MCP
+
+Use the flow that matches how you run this server.
+
+### If you use `npx` in your MCP config
+
+No local install update is needed. Restart your MCP host (Claude Desktop / Cursor / Claude Code) and `npx` will resolve the latest published version.
+
+### If you use a global install
+
+```bash
+npm install -g productive-mcp-rb2@latest
+```
+
+Verify:
+
+```bash
+npm ls -g productive-mcp-rb2 --depth=0
+```
+
+### If you run from a local checkout (`node /path/to/build/index.js`)
+
+```bash
+git pull
+npm install
+npm run build
+```
+
+Then restart your MCP host so it reloads the new build.
+
+## Automated npm publishing
+
+This repo includes `.github/workflows/npm-publish.yml`.
+
+- Trigger: every push to `main`
+- Guardrail: workflow skips publishing if the current `package.json` version already exists on npm
+- Auth: requires repository secret `NPM_TOKEN`
+
+Typical release flow:
+
+```bash
+npm version patch
+git push
+```
+
 ## Configuration
 
 ### Environment variables
