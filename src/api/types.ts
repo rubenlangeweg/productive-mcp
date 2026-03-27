@@ -704,6 +704,170 @@ export interface ProductiveMembership {
 }
 
 /**
+ * Todo/checklist item within a task
+ */
+export interface ProductiveTodo {
+  id: string;
+  type: 'todos';
+  attributes: {
+    title: string;
+    completed: boolean;
+    position?: number;
+    created_at: string;
+    updated_at: string;
+    [key: string]: unknown;
+  };
+  relationships?: {
+    task?: {
+      data: {
+        id: string;
+        type: 'tasks';
+      };
+    };
+    [key: string]: unknown;
+  };
+}
+
+/**
+ * Todo creation interface
+ */
+export interface ProductiveTodoCreate {
+  data: {
+    type: 'todos';
+    attributes: {
+      title: string;
+    };
+    relationships: {
+      task: {
+        data: {
+          id: string;
+          type: 'tasks';
+        };
+      };
+    };
+  };
+}
+
+/**
+ * Task dependency entity
+ */
+export interface ProductiveDependency {
+  id: string;
+  type: 'task_dependencies';
+  attributes: {
+    type_string?: 'blocking' | 'waiting_on' | 'related';
+    created_at: string;
+    updated_at: string;
+    [key: string]: unknown;
+  };
+  relationships?: {
+    task?: {
+      data: {
+        id: string;
+        type: 'tasks';
+      };
+    };
+    depends_on?: {
+      data: {
+        id: string;
+        type: 'tasks';
+      };
+    };
+    [key: string]: unknown;
+  };
+}
+
+/**
+ * Task dependency creation interface
+ */
+export interface ProductiveDependencyCreate {
+  data: {
+    type: 'task_dependencies';
+    attributes?: {
+      type_string?: 'blocking' | 'waiting_on' | 'related';
+    };
+    relationships: {
+      task: {
+        data: {
+          id: string;
+          type: 'tasks';
+        };
+      };
+      depends_on: {
+        data: {
+          id: string;
+          type: 'tasks';
+        };
+      };
+    };
+  };
+}
+
+/**
+ * Page/document entity in Productive knowledge base
+ */
+export interface ProductivePage {
+  id: string;
+  type: 'pages';
+  attributes: {
+    title: string;
+    content?: string;
+    visibility?: string;
+    position?: number;
+    created_at: string;
+    updated_at: string;
+    [key: string]: unknown;
+  };
+  relationships?: {
+    project?: {
+      data: {
+        id: string;
+        type: 'projects';
+      };
+    };
+    parent?: {
+      data: {
+        id: string;
+        type: 'pages';
+      } | null;
+    };
+    [key: string]: unknown;
+  };
+}
+
+/**
+ * Attachment entity for files attached to tasks or comments
+ */
+export interface ProductiveAttachment {
+  id: string;
+  type: 'attachments';
+  attributes: {
+    filename: string;
+    url?: string;
+    content_type?: string;
+    filesize?: number;
+    created_at: string;
+    updated_at: string;
+    [key: string]: unknown;
+  };
+  relationships?: {
+    attachable?: {
+      data: {
+        id: string;
+        type: string;
+      };
+    };
+    creator?: {
+      data: {
+        id: string;
+        type: 'people';
+      };
+    };
+    [key: string]: unknown;
+  };
+}
+
+/**
  * Booking entity for resource planning/capacity management
  */
 export interface ProductiveBooking {

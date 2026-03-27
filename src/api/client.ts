@@ -18,6 +18,12 @@ import {
   ProductiveExpenseCreate,
   ProductiveMembership,
   ProductiveBooking,
+  ProductiveTodo,
+  ProductiveTodoCreate,
+  ProductiveDependency,
+  ProductiveDependencyCreate,
+  ProductivePage,
+  ProductiveAttachment,
   ProductiveResponse,
   ProductiveSingleResponse,
   ProductiveTaskCreate,
@@ -987,5 +993,116 @@ export class ProductiveAPIClient {
 
     const queryString = queryParams.toString();
     return this.makeRequest<ProductiveResponse<ProductiveBooking>>(`bookings${queryString ? `?${queryString}` : ''}`);
+  }
+
+  // ─── Todos ─────────────────────────────────────────────────────────────────
+
+  async listTodos(taskId: string): Promise<ProductiveResponse<ProductiveTodo>> {
+    return this.makeRequest<ProductiveResponse<ProductiveTodo>>(`todos?filter[task_id]=${taskId}`);
+  }
+
+  async createTodo(todoData: ProductiveTodoCreate): Promise<ProductiveSingleResponse<ProductiveTodo>> {
+    return this.makeRequest<ProductiveSingleResponse<ProductiveTodo>>('todos', {
+      method: 'POST',
+      body: JSON.stringify(todoData),
+    });
+  }
+
+  async updateTodo(
+    todoId: string,
+    attrs: { title?: string; completed?: boolean }
+  ): Promise<ProductiveSingleResponse<ProductiveTodo>> {
+    return this.makeRequest<ProductiveSingleResponse<ProductiveTodo>>(`todos/${todoId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ data: { type: 'todos', id: todoId, attributes: attrs } }),
+    });
+  }
+
+  async deleteTodo(todoId: string): Promise<void> {
+    const url = `${this.config.PRODUCTIVE_API_BASE_URL}todos/${todoId}`;
+    const response = await fetch(url, { method: 'DELETE', headers: this.getHeaders() });
+    if (!response.ok && response.status !== 204) {
+      throw new Error(await this.buildErrorMessage(response));
+    }
+  }
+
+  // ─── Subtasks ──────────────────────────────────────────────────────────────
+
+  async listSubtasks(parentTaskId: string, params?: { limit?: number }): Promise<ProductiveResponse<ProductiveTask>> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('filter[parent_task_id]', parentTaskId);
+    if (params?.limit) {
+      queryParams.append('page[size]', params.limit.toString());
+    }
+    return this.makeRequest<ProductiveResponse<ProductiveTask>>(`tasks?${queryParams.toString()}`);
+  }
+
+  // ─── Task Dependencies ─────────────────────────────────────────────────────
+
+  async listTaskDependencies(taskId: string): Promise<ProductiveResponse<ProductiveDependency>> {
+    return this.makeRequest<ProductiveResponse<ProductiveDependency>>(
+      `task_dependencies?filter[task_id]=${taskId}&include=task,depends_on`
+    );
+  }
+
+  async addTaskDependency(depData: ProductiveDependencyCreate): Promise<ProductiveSingleResponse<ProductiveDependency>> {
+    return this.makeRequest<ProductiveSingleResponse<ProductiveDependency>>('task_dependencies', {
+      method: 'POST',
+      body: JSON.stringify(depData),
+    });
+  }
+
+  async removeTaskDependency(dependencyId: string): Promise<void> {
+    const url = `${this.config.PRODUCTIVE_API_BASE_URL}task_dependencies/${dependencyId}`;
+    const response = await fetch(url, { method: 'DELETE', headers: this.getHeaders() });
+    if (!response.ok && response.status !== 204) {
+      throw new Error(await this.buildErrorMessage(response));
+    }
+  }
+
+  // ─── Pages ─────────────────────────────────────────────────────────────────
+
+  async listPages(params?: {
+    project_id?: string;
+    limit?: number;
+    page?: number;
+  }): Promise<ProductiveResponse<ProductivePage>> {
+    const queryParams = new URLSearchParams();
+    if (params?.project_id) {
+      queryParams.append('filter[project_id]', params.project_id);
+    }
+    if (params?.limit) {
+      queryParams.append('page[size]', params.limit.toString());
+    }
+    if (params?.page) {
+      queryParams.append('page[number]', params.page.toString());
+    }
+    const queryString = queryParams.toString();
+    return this.makeRequest<ProductiveResponse<ProductivePage>>(`pages${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getPage(pageId: string): Promise<ProductiveSingleResponse<ProductivePage>> {
+    return this.makeRequest<ProductiveSingleResponse<ProductivePage>>(`pages/${pageId}`);
+  }
+
+  // ─── Attachments ───────────────────────────────────────────────────────────
+
+  async listAttachments(params: {
+    task_id?: string;
+    comment_id?: string;
+    limit?: number;
+  }): Promise<ProductiveResponse<ProductiveAttachment>> {
+    const queryParams = new URLSearchParams();
+    if (params.task_id) {
+      queryParams.append('filter[attachable_id]', params.task_id);
+      queryParams.append('filter[attachable_type]', 'Task');
+    } else if (params.comment_id) {
+      queryParams.append('filter[attachable_id]', params.comment_id);
+      queryParams.append('filter[attachable_type]', 'Comment');
+    }
+    if (params.limit) {
+      queryParams.append('page[size]', params.limit.toString());
+    }
+    return this.makeRequest<ProductiveResponse<ProductiveAttachment>>(`attachments?${queryParams.toString()}`);
   }
 }

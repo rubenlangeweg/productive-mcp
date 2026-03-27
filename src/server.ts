@@ -29,6 +29,12 @@ import { listPeopleTool, getPersonTool, listPeopleDefinition, getPersonDefinitio
 import { listInvoicesTool, getInvoiceTool, listInvoicesDefinition, getInvoiceDefinition } from './tools/invoices.js';
 import { listExpensesTool, createExpenseTool, listExpensesDefinition, createExpenseDefinition } from './tools/expenses.js';
 import { listMembershipsTool, listMembershipsDefinition } from './tools/memberships.js';
+import { listSubtasksTool, listSubtasksDefinition } from './tools/subtasks.js';
+import { listTodosTool, createTodoTool, updateTodoTool, deleteTodoTool, listTodosDefinition, createTodoDefinition, updateTodoDefinition, deleteTodoDefinition } from './tools/todos.js';
+import { listTaskDependenciesTool, addTaskDependencyTool, removeTaskDependencyTool, listTaskDependenciesDefinition, addTaskDependencyDefinition, removeTaskDependencyDefinition } from './tools/dependencies.js';
+import { createTasksBatchTool, createTasksBatchDefinition } from './tools/batch.js';
+import { listPagesTool, getPageTool, listPagesDefinition, getPageDefinition } from './tools/pages.js';
+import { listAttachmentsTool, listAttachmentsDefinition } from './tools/attachments.js';
 
 export async function createServer() {
   // Initialize API client and config early to check user context
@@ -103,6 +109,24 @@ export async function createServer() {
       getResourcePlanTool,
       getOverbookedPeopleTool,
       getOrgOverviewTool,
+      // Subtasks
+      listSubtasksDefinition,
+      // Todos / checklists
+      listTodosDefinition,
+      createTodoDefinition,
+      updateTodoDefinition,
+      deleteTodoDefinition,
+      // Task dependencies
+      listTaskDependenciesDefinition,
+      addTaskDependencyDefinition,
+      removeTaskDependencyDefinition,
+      // Batch operations
+      createTasksBatchDefinition,
+      // Pages / knowledge base
+      listPagesDefinition,
+      getPageDefinition,
+      // Attachments
+      listAttachmentsDefinition,
     ],
   }));
   
@@ -248,6 +272,49 @@ export async function createServer() {
 
       case 'get_org_overview':
         return await getOrgOverviewHandler(apiClient, args);
+
+      // Subtasks
+      case 'list_subtasks':
+        return await listSubtasksTool(apiClient, args);
+
+      // Todos
+      case 'list_todos':
+        return await listTodosTool(apiClient, args);
+
+      case 'create_todo':
+        return await createTodoTool(apiClient, args);
+
+      case 'update_todo':
+        return await updateTodoTool(apiClient, args);
+
+      case 'delete_todo':
+        return await deleteTodoTool(apiClient, args);
+
+      // Task dependencies
+      case 'list_task_dependencies':
+        return await listTaskDependenciesTool(apiClient, args);
+
+      case 'add_task_dependency':
+        return await addTaskDependencyTool(apiClient, args);
+
+      case 'remove_task_dependency':
+        return await removeTaskDependencyTool(apiClient, args);
+
+      // Batch
+      case 'create_tasks_batch':
+        return await createTasksBatchTool(apiClient, args, config);
+
+      // Pages
+      case 'list_pages':
+        return await listPagesTool(apiClient, args);
+
+      case 'get_page':
+        return await getPageTool(apiClient, args);
+
+      // Attachments
+      case 'list_attachments':
+        return await listAttachmentsTool(apiClient, args);
+
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
