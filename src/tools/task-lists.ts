@@ -74,6 +74,7 @@ export async function listTaskLists(
 export const listTaskListsTool = {
   name: 'list_task_lists',
   description: 'Get a list of task lists from Productive.io. Task lists organize tasks within boards.',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {
@@ -170,6 +171,7 @@ export async function createTaskList(
 export const createTaskListTool = {
   name: 'create_task_list',
   description: 'Create a new task list in a Productive.io board. Task lists help organize tasks within boards.',
+  annotations: { readOnlyHint: false, destructiveHint: false },
   inputSchema: {
     type: 'object',
     properties: {

@@ -50,6 +50,7 @@ export async function moveTaskToList(
 export const moveTaskToListTool = {
   name: 'move_task_to_list',
   description: 'Move a task to a different task list within the same project',
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
   inputSchema: {
     type: 'object',
     properties: {

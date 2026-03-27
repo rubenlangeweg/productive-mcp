@@ -121,6 +121,7 @@ export async function updateTaskSprint(
 export const updateTaskSprintTool = {
   name: 'update_task_sprint',
   description: 'Update the sprint(s) assigned to a task. Sprints are tracked using a custom field.',
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
   inputSchema: {
     type: 'object',
     properties: {

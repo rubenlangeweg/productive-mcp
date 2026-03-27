@@ -1,6 +1,6 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { CallToolRequestSchema, ListToolsRequestSchema, ListPromptsRequestSchema, GetPromptRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { CallToolRequestSchema, ListToolsRequestSchema, ListPromptsRequestSchema, GetPromptRequestSchema, ListResourcesRequestSchema, ReadResourceRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { getConfig } from './config/index.js';
 import { ProductiveAPIClient } from './api/client.js';
@@ -22,6 +22,8 @@ import { moveTaskToList, moveTaskToListTool } from './tools/task-list-move.js';
 import { addToBacklog, addToBacklogTool } from './tools/task-backlog.js';
 import { taskRepositionTool, taskRepositionDefinition, taskRepositionSchema } from './tools/task-reposition.js';
 import { generateTimesheetPrompt, timesheetPromptDefinition, generateQuickTimesheetPrompt, quickTimesheetPromptDefinition } from './prompts/timesheet.js';
+import { generateWeeklyReportPrompt, weeklyReportPromptDefinition, generateProjectHealthPrompt, projectHealthPromptDefinition, generateSprintPlanningPrompt, sprintPlanningPromptDefinition } from './prompts/workflows.js';
+import { listStaticResources, listResourceTemplates, readResource } from './resources/index.js';
 import { getBudgetBurnTool, getBudgetBurnTool_handler } from './tools/budgets.js';
 import { getResourcePlanTool, getOverbookedPeopleTool, getResourcePlanHandler, getOverbookedPeopleHandler, listBookingsTool, listBookingsDefinition } from './tools/bookings.js';
 import { getOrgOverviewTool, getOrgOverviewHandler } from './tools/org.js';
@@ -51,6 +53,7 @@ export async function createServer() {
       capabilities: {
         tools: {},
         prompts: {},
+        resources: {},
       },
     }
   );
@@ -320,24 +323,46 @@ export async function createServer() {
     }
   });
 
+  // Register resource handlers
+  server.setRequestHandler(ListResourcesRequestSchema, async () => ({
+    resources: listStaticResources(config),
+    resourceTemplates: listResourceTemplates(),
+  }));
+
+  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+    return await readResource(request.params.uri, apiClient, config);
+  });
+
   // Register prompt handlers
   server.setRequestHandler(ListPromptsRequestSchema, async () => ({
     prompts: [
       timesheetPromptDefinition,
       quickTimesheetPromptDefinition,
+      weeklyReportPromptDefinition,
+      projectHealthPromptDefinition,
+      sprintPlanningPromptDefinition,
     ],
   }));
 
   server.setRequestHandler(GetPromptRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
-    
+
     switch (name) {
       case 'timesheet_entry':
         return await generateTimesheetPrompt(args);
-        
+
       case 'timesheet_step':
         return await generateQuickTimesheetPrompt(args);
-        
+
+      case 'weekly_report':
+        return await generateWeeklyReportPrompt(args);
+
+      case 'project_health':
+        return await generateProjectHealthPrompt(args);
+
+      case 'sprint_planning':
+        return await generateSprintPlanningPrompt(args);
+
       default:
         throw new Error(`Unknown prompt: ${name}`);
     }

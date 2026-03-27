@@ -113,6 +113,7 @@ export async function listActivities(
 export const listActivitiesTool = {
   name: 'list_activities',
   description: 'List activities (changes/updates) from Productive.io with filtering options for tracking recent work',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {

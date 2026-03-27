@@ -87,6 +87,7 @@ export async function getPageTool(
 export const listPagesDefinition = {
   name: 'list_pages',
   description: 'List knowledge base pages in Productive.io. Filter by project to see project-specific docs.',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {
@@ -105,6 +106,7 @@ export const listPagesDefinition = {
 export const getPageDefinition = {
   name: 'get_page',
   description: 'Get the full content of a specific knowledge base page in Productive.io.',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {

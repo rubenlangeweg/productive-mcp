@@ -112,6 +112,7 @@ export async function getInvoiceTool(client: ProductiveAPIClient, args: unknown)
 export const listInvoicesDefinition = {
   name: 'list_invoices',
   description: 'List invoices in Productive.io. Filter by company, project, or status (1=draft, 2=sent, 3=paid, 4=canceled) and date range.',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {
@@ -134,6 +135,7 @@ export const listInvoicesDefinition = {
 export const getInvoiceDefinition = {
   name: 'get_invoice',
   description: 'Get detailed information about a specific invoice by its ID.',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {

@@ -105,6 +105,7 @@ export async function removeTaskDependencyTool(
 export const listTaskDependenciesDefinition = {
   name: 'list_task_dependencies',
   description: 'List all dependencies for a task in Productive.io (blocking, waiting_on, related).',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {
@@ -117,6 +118,7 @@ export const listTaskDependenciesDefinition = {
 export const addTaskDependencyDefinition = {
   name: 'add_task_dependency',
   description: 'Add a dependency relationship between two tasks in Productive.io.',
+  annotations: { readOnlyHint: false, destructiveHint: false },
   inputSchema: {
     type: 'object',
     properties: {
@@ -136,6 +138,7 @@ export const addTaskDependencyDefinition = {
 export const removeTaskDependencyDefinition = {
   name: 'remove_task_dependency',
   description: 'Remove a task dependency by its dependency ID. Use list_task_dependencies first to find the dependency ID.',
+  annotations: { readOnlyHint: false, destructiveHint: true },
   inputSchema: {
     type: 'object',
     properties: {

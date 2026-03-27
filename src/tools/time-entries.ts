@@ -494,6 +494,7 @@ export async function getProjectServicesTool(
 export const listTimeEntriesDefinition = {
   name: 'list_time_entries',
   description: 'View existing time entries from Productive.io with detailed information including service and budget relationships. Use this to see what time has been logged and to which projects/services. If PRODUCTIVE_USER_ID is configured, you can use "me" to refer to the configured user for person_id.',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {
@@ -540,6 +541,7 @@ export const listTimeEntriesDefinition = {
 export const createTimeEntryDefinition = {
   name: 'create_time_entry',
   description: 'STEP 5 (FINAL) of timesheet workflow: Create a time entry with detailed work description. COMPLETE WORKFLOW: 1) list_projects → 2) list_project_deals → 3) list_deal_services → 4) list_project_tasks (recommended) → 5) create_time_entry. You MUST provide: valid service_id from the hierarchy, detailed work notes (minimum 10 chars), and optionally link to a specific task_id. This tool requires confirmation before creating. If PRODUCTIVE_USER_ID is configured, use "me" for person_id.',
+  annotations: { readOnlyHint: false, destructiveHint: false },
   inputSchema: {
     type: 'object',
     properties: {
@@ -585,6 +587,7 @@ export const createTimeEntryDefinition = {
 export const listServicesDefinition = {
   name: 'list_services',
   description: 'List all services in the organization. NOTE: For timesheet entries, use the proper workflow instead: list_projects → list_project_deals → list_deal_services → create_time_entry. This tool shows all services but does not indicate which project/budget they belong to.',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {
@@ -729,6 +732,7 @@ export async function listDealServicesTool(
 export const listProjectDealsDefinition = {
   name: 'list_project_deals',
   description: 'STEP 2 of timesheet workflow: Get deals/budgets for a specific project. COMPLETE WORKFLOW: 1) list_projects → 2) list_project_deals → 3) list_deal_services → 4) list_project_tasks (recommended) → 5) create_time_entry. This follows: Project → Deal/Budget → Service → Task → Time Entry.',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {
@@ -757,6 +761,7 @@ export const listProjectDealsDefinition = {
 export const listDealServicesDefinition = {
   name: 'list_deal_services',
   description: 'STEP 3 of timesheet workflow: Get services for a specific deal/budget. COMPLETE WORKFLOW: 1) list_projects → 2) list_project_deals → 3) list_deal_services → 4) list_project_tasks (recommended) → 5) create_time_entry. After this, optionally use list_project_tasks to find specific tasks to link your time entry to.',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {
@@ -779,6 +784,7 @@ export const listDealServicesDefinition = {
 export const getProjectServicesDefinition = {
   name: 'get_project_services',
   description: 'Get all services for a project by traversing its deals/budgets. Returns services grouped by deal/budget. Prefer using list_project_deals + list_deal_services for more control.',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {
@@ -896,6 +902,7 @@ export async function updateTimeEntryTool(
 export const updateTimeEntryDefinition = {
   name: 'update_time_entry',
   description: 'Update an existing time entry in Productive.io. Only provide the fields you want to change.',
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
   inputSchema: {
     type: 'object',
     properties: {
@@ -938,6 +945,7 @@ export async function deleteTimeEntryTool(
 export const deleteTimeEntryDefinition = {
   name: 'delete_time_entry',
   description: 'Delete a time entry from Productive.io. This action is irreversible.',
+  annotations: { readOnlyHint: false, destructiveHint: true },
   inputSchema: {
     type: 'object',
     properties: {

@@ -122,6 +122,7 @@ export const repositionTask = async (
 export const taskRepositionDefinition = {
   name: 'reposition_task',
   description: 'Reposition a task in a task list',
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
   inputSchema: {
     type: 'object',
     properties: {

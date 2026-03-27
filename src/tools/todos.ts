@@ -136,6 +136,7 @@ export async function deleteTodoTool(
 export const listTodosDefinition = {
   name: 'list_todos',
   description: 'List all todo/checklist items for a specific task in Productive.io.',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {
@@ -148,6 +149,7 @@ export const listTodosDefinition = {
 export const createTodoDefinition = {
   name: 'create_todo',
   description: 'Create a new todo/checklist item on a task in Productive.io.',
+  annotations: { readOnlyHint: false, destructiveHint: false },
   inputSchema: {
     type: 'object',
     properties: {
@@ -161,6 +163,7 @@ export const createTodoDefinition = {
 export const updateTodoDefinition = {
   name: 'update_todo',
   description: 'Update a todo/checklist item — rename it or mark it as completed/incomplete.',
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
   inputSchema: {
     type: 'object',
     properties: {
@@ -175,6 +178,7 @@ export const updateTodoDefinition = {
 export const deleteTodoDefinition = {
   name: 'delete_todo',
   description: 'Delete a todo/checklist item from a task in Productive.io.',
+  annotations: { readOnlyHint: false, destructiveHint: true },
   inputSchema: {
     type: 'object',
     properties: {

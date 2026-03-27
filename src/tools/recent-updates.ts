@@ -124,6 +124,7 @@ export async function getRecentUpdates(
 export const getRecentUpdatesTool = {
   name: 'get_recent_updates',
   description: 'Get a summary of recent updates and changes in the last N days, with detailed breakdown by item type',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {

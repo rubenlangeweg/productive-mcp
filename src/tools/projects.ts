@@ -64,6 +64,7 @@ export async function listProjectsTool(
 export const listProjectsDefinition = {
   name: 'list_projects',
   description: 'Get a list of projects from Productive.io',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {

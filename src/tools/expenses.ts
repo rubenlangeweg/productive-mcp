@@ -144,6 +144,7 @@ export async function createExpenseTool(
 export const listExpensesDefinition = {
   name: 'list_expenses',
   description: 'List expenses in Productive.io. Filter by person, project, or date range. Use "me" for person_id if PRODUCTIVE_USER_ID is configured.',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {
@@ -160,6 +161,7 @@ export const listExpensesDefinition = {
 export const createExpenseDefinition = {
   name: 'create_expense',
   description: 'Create a new expense record in Productive.io. Expenses can be linked to a project and/or deal/budget.',
+  annotations: { readOnlyHint: false, destructiveHint: false },
   inputSchema: {
     type: 'object',
     properties: {

@@ -292,6 +292,7 @@ export async function listBookingsTool(
 export const listBookingsDefinition = {
   name: 'list_bookings',
   description: 'List resource bookings/capacity planning entries in Productive.io. Bookings show planned work allocation for people on projects over date ranges. Use to check availability and planned capacity. Use "me" for person_id if PRODUCTIVE_USER_ID is configured.',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {
@@ -308,6 +309,7 @@ export const listBookingsDefinition = {
 export const getResourcePlanTool = {
   name: 'get_resource_plan',
   description: 'Get the rb2 resource plan for a date range. Shows bookings with person, project, hours/day, and utilisation %. Use person_name and project_id for focused planning views.',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {
@@ -322,6 +324,7 @@ export const getResourcePlanTool = {
 export const getOverbookedPeopleTool = {
   name: 'get_overbooked_people',
   description: 'Detect people with overlapping bookings above a utilisation threshold in a date range. Calculates daily load and highlights over-capacity dates.',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {

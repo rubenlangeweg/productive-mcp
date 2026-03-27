@@ -79,6 +79,7 @@ export async function myTasksTool(
 export const myTasksDefinition = {
   name: 'my_tasks',
   description: 'Get tasks assigned to you (requires PRODUCTIVE_USER_ID to be configured)',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {

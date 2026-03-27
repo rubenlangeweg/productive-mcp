@@ -48,6 +48,7 @@ export async function listSubtasksTool(
 export const listSubtasksDefinition = {
   name: 'list_subtasks',
   description: 'List all subtasks (child tasks) of a given parent task in Productive.io.',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {

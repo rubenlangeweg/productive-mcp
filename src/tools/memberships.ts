@@ -61,6 +61,7 @@ export async function listMembershipsTool(client: ProductiveAPIClient, args: unk
 export const listMembershipsDefinition = {
   name: 'list_memberships',
   description: 'List project memberships in Productive.io. Use to see which people are members of a project, or which projects a person belongs to. Provide project_id to see all members of a project, or person_id to see all projects a person is a member of.',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {

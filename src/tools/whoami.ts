@@ -71,6 +71,7 @@ When you use "me" in any command, it refers to this user ID.`,
 export const whoAmITool = {
   name: 'whoami',
   description: 'Get the current user context. Shows which user ID is configured as "me" for all operations.',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {},

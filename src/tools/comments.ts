@@ -65,6 +65,7 @@ export async function addTaskCommentTool(
 export const addTaskCommentDefinition = {
   name: 'add_task_comment',
   description: 'Add a comment to a task in Productive.io',
+  annotations: { readOnlyHint: false, destructiveHint: false },
   inputSchema: {
     type: 'object',
     properties: {

@@ -75,6 +75,7 @@ export async function listBoards(
 export const listBoardsTool = {
   name: 'list_boards',
   description: 'Get a list of boards from Productive.io',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {
@@ -165,6 +166,7 @@ export async function createBoard(
 export const createBoardTool = {
   name: 'create_board',
   description: 'Create a new board in a Productive.io project',
+  annotations: { readOnlyHint: false, destructiveHint: false },
   inputSchema: {
     type: 'object',
     properties: {

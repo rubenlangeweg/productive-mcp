@@ -7,6 +7,7 @@ const getOrgOverviewSchema = z.object({});
 export const getOrgOverviewTool = {
   name: 'get_org_overview',
   description: `Get an rb2 org-level overview: headcount per subsidiary (NL, SCAPE, Code Blue, CN, PT, NG) plus total active projects. Shows who works where across the organisation.`,
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {},

@@ -63,6 +63,7 @@ export async function listAttachmentsTool(
 export const listAttachmentsDefinition = {
   name: 'list_attachments',
   description: 'List file attachments on a task or comment in Productive.io. Returns filenames, types, sizes, and download URLs.',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {

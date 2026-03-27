@@ -65,6 +65,7 @@ export async function listCompaniesTool(
 export const listCompaniesDefinition = {
   name: 'list_companies',
   description: 'Get a list of companies/customers from Productive.io',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {

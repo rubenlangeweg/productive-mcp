@@ -103,6 +103,7 @@ export async function addToBacklog(
 export const addToBacklogTool = {
   name: 'add_to_backlog',
   description: 'Add a task to the project backlog. Creates a Backlog task list if it doesn\'t exist.',
+  annotations: { readOnlyHint: false, destructiveHint: false },
   inputSchema: {
     type: 'object',
     properties: {

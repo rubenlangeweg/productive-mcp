@@ -90,6 +90,7 @@ export async function getPersonTool(client: ProductiveAPIClient, args: unknown):
 export const listPeopleDefinition = {
   name: 'list_people',
   description: 'List people (team members) in your Productive.io organization. Use to find person IDs for task assignment, time entries, and filtering. Supports filtering by company, project membership, active status, and email.',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {
@@ -106,6 +107,7 @@ export const listPeopleDefinition = {
 export const getPersonDefinition = {
   name: 'get_person',
   description: 'Get detailed information about a specific person by their ID.',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {

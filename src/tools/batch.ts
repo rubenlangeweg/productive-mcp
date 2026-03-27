@@ -93,6 +93,7 @@ export async function createTasksBatchTool(
 export const createTasksBatchDefinition = {
   name: 'create_tasks_batch',
   description: 'Create multiple tasks at once in Productive.io. Each task is created independently — failures on individual tasks do not abort the others. Shared project/board/task_list can be set at the top level and overridden per task.',
+  annotations: { readOnlyHint: false, destructiveHint: false },
   inputSchema: {
     type: 'object',
     properties: {

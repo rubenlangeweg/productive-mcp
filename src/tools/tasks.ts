@@ -266,6 +266,7 @@ export async function getTaskTool(
 export const listTasksDefinition = {
   name: 'list_tasks',
   description: 'Get a list of tasks from Productive.io',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {
@@ -296,6 +297,7 @@ export const listTasksDefinition = {
 export const getProjectTasksDefinition = {
   name: 'get_project_tasks',
   description: 'Get all tasks for a specific project. ALSO used as STEP 4 in timesheet workflow to find task_id for linking time entries to specific tasks. Workflow: list_projects → list_project_deals → list_deal_services → get_project_tasks → create_time_entry.',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {
@@ -316,6 +318,7 @@ export const getProjectTasksDefinition = {
 export const getTaskDefinition = {
   name: 'get_task',
   description: 'Get detailed information about a specific task by ID',
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {
@@ -464,6 +467,7 @@ export async function createTaskTool(
 export const createTaskDefinition = {
   name: 'create_task',
   description: 'Create a new task in Productive.io. If PRODUCTIVE_USER_ID is configured, you can use "me" to refer to the configured user when assigning.',
+  annotations: { readOnlyHint: false, destructiveHint: false },
   inputSchema: {
     type: 'object',
     properties: {
@@ -589,6 +593,7 @@ export async function updateTaskAssignmentTool(
 export const updateTaskAssignmentDefinition = {
   name: 'update_task_assignment',
   description: 'Update the assignee of an existing task. If PRODUCTIVE_USER_ID is configured, you can use "me" to refer to the configured user. To unassign, use "null" as a string.',
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
   inputSchema: {
     type: 'object',
     properties: {
@@ -688,6 +693,7 @@ export async function updateTaskDetailsTool(
 export const updateTaskDetailsDefinition = {
   name: 'update_task_details',
   description: 'Update the title (name) and/or description of an existing task. At least one field must be provided.',
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
   inputSchema: {
     type: 'object',
     properties: {

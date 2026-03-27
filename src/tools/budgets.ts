@@ -10,6 +10,7 @@ const getBudgetBurnSchema = z.object({
 export const getBudgetBurnTool = {
   name: 'get_budget_burn',
   description: `Analyse budget burn for rb2 projects. Returns budget value, amount spent, burn %, remaining, and RAG status per budget deal. RAG: 🟢 <70% / 🟡 70-90% / 🔴 >90%. Use min_burn_pct=70 to show only at-risk projects.`,
+  annotations: { readOnlyHint: true },
   inputSchema: {
     type: 'object',
     properties: {

@@ -70,6 +70,7 @@ export async function updateTaskStatusTool(
 export const updateTaskStatusDefinition = {
   name: 'update_task_status',
   description: 'Update the status of a task in Productive.io using workflow status ID. Use list_workflow_statuses to see available status IDs.',
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
   inputSchema: {
     type: 'object',
     properties: {
