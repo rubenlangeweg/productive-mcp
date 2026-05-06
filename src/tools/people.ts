@@ -18,8 +18,8 @@ const getPersonSchema = z.object({
 export const listPeopleOutputSchema = z.object({
   people: z.array(z.object({
     id: z.string(),
-    firstName: z.string(),
-    lastName: z.string(),
+    firstName: z.string().nullable(),
+    lastName: z.string().nullable(),
     email: z.string().optional(),
     title: z.string().optional(),
     role: z.string().optional(),
@@ -32,8 +32,8 @@ export const listPeopleOutputSchema = z.object({
 
 export const getPersonOutputSchema = z.object({
   id: z.string(),
-  firstName: z.string(),
-  lastName: z.string(),
+  firstName: z.string().nullable(),
+  lastName: z.string().nullable(),
   email: z.string().optional(),
   title: z.string().optional(),
   role: z.string().optional(),
@@ -73,8 +73,8 @@ export async function listPeopleTool(client: ProductiveAPIClient, args: unknown)
 
     const people = response.data.map(person => ({
       id: person.id,
-      firstName: person.attributes.first_name,
-      lastName: person.attributes.last_name,
+      firstName: person.attributes.first_name ?? null,
+      lastName: person.attributes.last_name ?? null,
       ...(person.attributes.email ? { email: person.attributes.email } : {}),
       ...(person.attributes.title ? { title: person.attributes.title } : {}),
       ...(person.attributes.role ? { role: person.attributes.role } : {}),
@@ -113,8 +113,8 @@ export async function getPersonTool(client: ProductiveAPIClient, args: unknown):
 
     const sc: z.infer<typeof getPersonOutputSchema> = {
       id: person.id,
-      firstName: person.attributes.first_name,
-      lastName: person.attributes.last_name,
+      firstName: person.attributes.first_name ?? null,
+      lastName: person.attributes.last_name ?? null,
       ...(person.attributes.email ? { email: person.attributes.email } : {}),
       ...(person.attributes.title ? { title: person.attributes.title } : {}),
       ...(person.attributes.role ? { role: person.attributes.role } : {}),

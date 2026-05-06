@@ -53,7 +53,7 @@ export async function listActivities(
       id: a.id,
       ...(a.attributes.event ? { event: a.attributes.event } : {}),
       ...(a.attributes.item_type ? { itemType: a.attributes.item_type } : {}),
-      ...(a.attributes.item_id ? { itemId: a.attributes.item_id } : {}),
+      ...(a.attributes.item_id != null ? { itemId: String(a.attributes.item_id) } : {}),
       ...(a.attributes.created_at ? { createdAt: a.attributes.created_at } : {}),
       ...(a.relationships?.creator?.data?.id ? { creatorId: a.relationships.creator.data.id } : {}),
       ...(a.attributes.changes && Object.keys(a.attributes.changes).length > 0 ? { changes: a.attributes.changes as Record<string, unknown> } : {}),
