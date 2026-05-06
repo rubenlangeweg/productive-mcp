@@ -15,6 +15,15 @@ export function listTaskDependencies(
   );
 }
 
+export function getTaskDependency(
+  request: Requester,
+  dependencyId: string
+): Promise<ProductiveSingleResponse<ProductiveDependency>> {
+  return request<ProductiveSingleResponse<ProductiveDependency>>(
+    `task_dependencies/${dependencyId}`
+  );
+}
+
 export function addTaskDependency(
   request: Requester,
   depData: ProductiveDependencyCreate

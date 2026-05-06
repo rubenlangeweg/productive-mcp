@@ -76,3 +76,10 @@ export function listSubtasks(
   appendPagination(qs, params);
   return request<ProductiveResponse<ProductiveTask>>(`tasks?${qs.toString()}`);
 }
+
+export function deleteTask(
+  request: Requester,
+  taskId: string
+): Promise<void> {
+  return request<void>(`tasks/${taskId}`, { method: 'DELETE' });
+}

@@ -65,7 +65,7 @@ Once configured, ask your AI assistant:
 "Show me my open tasks"
 "Log 2 hours to the Gadero project for today"
 "Which projects are over 80% budget burn?"
-"Give me a weekly report for this week"
+"Mark task 99 as Done"
 ```
 
 ---
@@ -74,8 +74,8 @@ Once configured, ask your AI assistant:
 
 | Variable | Required | Description |
 |---|---|---|
-| `PRODUCTIVE_API_TOKEN` | ✅ | Your Productive.io API token |
-| `PRODUCTIVE_ORG_ID` | ✅ | Your organisation ID |
+| `PRODUCTIVE_API_TOKEN` | Yes | Your Productive.io API token |
+| `PRODUCTIVE_ORG_ID` | Yes | Your organisation ID |
 | `PRODUCTIVE_USER_ID` | Optional | Your user ID — enables `my_tasks`, `me` shorthand in all tools, and the `productive://me/*` resources |
 
 ---
@@ -131,495 +131,242 @@ git push
 
 ---
 
-## Full Reference
-
-### Tools (55 total)
-
-Tools are grouped by area. All read-only tools are safe to call freely; write/mutate tools are marked.
-
----
-
-#### People & Identity
-
-##### `whoami`
-Get the current user context — shows which user ID is configured as "me" for all operations.
-
-```
-"Who am I in Productive?"
-"What user ID is configured?"
-```
-
-##### `list_people`
-List team members in your Productive organisation. Supports filtering by company, project membership, active status, and email. Use to find person IDs for task assignment, time entries, and filtering.
-
-```
-"Show me all active team members"
-"Find the person ID for John Smith"
-"Who is a member of project 12345?"
-```
-
-##### `get_person`
-Get detailed information about a specific person by their Productive ID.
-
-```
-"Get details for person 67890"
-```
-
----
-
-#### Projects & Companies
-
-##### `list_projects`
-List projects in your organisation. Filter by status (active/archived) or company.
-
-```
-"List all active projects"
-"Show me projects for company 12345"
-"What projects are archived?"
-```
-
-##### `list_companies`
-List companies (clients) in your organisation. Filter by active or archived status.
-
-```
-"Show me all clients"
-"List archived companies"
-```
-
----
-
-#### Tasks
-
-##### `list_tasks`
-List tasks from Productive.io. Filter by project, assignee, and open/closed status.
-
-```
-"Show all open tasks in project 12345"
-"What tasks are assigned to me?"
-"List closed tasks for this project"
-```
-
-##### `my_tasks`
-Get tasks assigned to the configured user. Requires `PRODUCTIVE_USER_ID` to be set.
-
-```
-"What are my open tasks?"
-"Show me everything assigned to me"
-```
-
-##### `create_task`
-Create a new task. If `PRODUCTIVE_USER_ID` is configured, use `"me"` as the assignee.
-
-```
-"Create a task 'Review PR #42' in project 12345"
-"Add a task assigned to me in the Design board"
-```
-
-##### `update_task_details`
-Update the title and/or description of an existing task.
-
-```
-"Rename task 99 to 'Final QA pass'"
-"Update the description of task 99"
-```
-
-##### `update_task_assignment`
-Update the assignee of an existing task. Use `"me"` for the configured user, or `"null"` to unassign.
-
-```
-"Assign task 99 to me"
-"Reassign task 99 to person 67890"
-"Unassign task 99"
-```
-
-##### `update_task_status`
-Update the status of a task using a workflow status ID. Use `list_workflow_statuses` to see available IDs.
-
-```
-"Mark task 99 as Done"
-"Move task 99 to In Progress"
-```
-
-##### `update_task_sprint`
-Update the sprint(s) assigned to a task. Sprints are tracked using a custom field.
-
-```
-"Move task 99 to Sprint S04"
-"Assign task 99 to sprints S03 and S04"
-```
-
-##### `reposition_task`
-Reposition a task within a task list — move it before or after another task.
-
-```
-"Move task 99 to the top of the list"
-"Position task 99 after task 100"
-```
-
-##### `move_task_to_list`
-Move a task to a different task list within the same project.
-
-```
-"Move task 99 to the 'Done' list"
-"Transfer task 99 to the Backlog"
-```
-
-##### `add_to_backlog`
-Add a task to the project backlog. Creates a Backlog task list if one doesn't exist.
-
-```
-"Add task 99 to the backlog"
-```
-
-##### `create_tasks_batch`
-Create multiple tasks at once in a single operation.
-
-```
-"Create these 5 tasks in project 12345: ..."
-```
-
----
-
-#### Subtasks
-
-##### `list_subtasks`
-List all subtasks (child tasks) of a given parent task.
-
-```
-"Show subtasks of task 99"
-"What's left under task 99?"
-```
-
----
-
-#### Task Todos / Checklists
-
-##### `list_todos`
-List all todo/checklist items for a specific task.
-
-```
-"Show the checklist on task 99"
-```
-
-##### `create_todo`
-Create a new todo/checklist item on a task.
-
-```
-"Add 'Write tests' to the checklist on task 99"
-```
-
-##### `update_todo`
-Rename a todo item or mark it as completed/incomplete.
-
-```
-"Mark todo 55 as done"
-"Rename todo 55 to 'Write integration tests'"
-```
-
-##### `delete_todo`
-Delete a todo/checklist item from a task. This action is destructive.
-
-```
-"Delete todo 55"
-```
-
----
-
-#### Task Dependencies
-
-##### `list_task_dependencies`
-List all dependencies for a task (blocking, waiting_on, related).
-
-```
-"What does task 99 depend on?"
-"Show blocking relationships for task 99"
-```
-
-##### `add_task_dependency`
-Add a dependency relationship between two tasks.
-
-Dependency types:
-- `blocking` — task_id blocks depends_on
-- `waiting_on` — task_id waits on depends_on
-- `related` — general relationship
-
-```
-"Task 99 is blocking task 100"
-"Task 99 is waiting on task 98"
-```
-
----
-
-#### Comments & Attachments
-
-##### `add_task_comment`
-Add a comment to a task.
-
-```
-"Add comment 'Approved — ready to ship' to task 99"
-```
-
-##### `list_attachments`
-List file attachments on a task or comment. Returns filenames, types, sizes, and download URLs.
-
-```
-"Show attachments on task 99"
-"What files are attached to comment 55?"
-```
-
----
-
-#### Boards & Task Lists
-
-##### `list_boards`
-List boards in a project.
-
-```
-"Show all boards in project 12345"
-```
-
-##### `create_board`
-Create a new board in a project.
-
-```
-"Create a board called 'Sprint 12' in project 12345"
-```
-
-##### `list_task_lists`
-List task lists within a board.
-
-```
-"Show task lists on board 678"
-```
-
-##### `create_task_list`
-Create a new task list in a board.
-
-```
-"Create a task list 'To Do' in board 678"
-```
-
----
-
-#### Workflow Statuses
-
-##### `list_workflow_statuses`
-List workflow statuses available in Productive.io. Used to set task status (Not Started=1, Started=2, Closed=3 and any custom statuses).
-
-```
-"What workflow statuses are available?"
-"Show me all task statuses"
-```
-
----
-
-#### Time Entries
+## Tool Reference
+
+Tools are listed in tables, grouped by area. Read-only tools are safe to call freely; write/mutate tools are noted in the description.
+
+### People & Identity
+
+| Tool | Description |
+|------|-------------|
+| `whoami` | Get the current user context — shows which user ID is configured as "me". |
+| `list_people` | List team members. Optional `company_id`, `project_id`, `is_active`, `email`, `limit`. |
+| `get_person` | Get details about a person. Requires `person_id`. |
+
+### Projects & Companies
+
+| Tool | Description |
+|------|-------------|
+| `list_projects` | List projects in your organisation. Optional `status`, `company_id`, `limit`. |
+| `list_companies` | List companies (clients). Optional `status`, `limit`. |
+
+### Tasks
+
+| Tool | Description |
+|------|-------------|
+| `list_tasks` | List tasks. Optional `project_id`, `assignee_id`, `status`, `limit`. |
+| `get_task` | Get full details of a task. Requires `task_id`. |
+| `get_project_tasks` | Get all tasks for a project. Requires `project_id`. Optional `status`. |
+| `my_tasks` | Get tasks assigned to the configured user. Requires `PRODUCTIVE_USER_ID`. |
+| `create_task` | Create a task. Requires `title`. Optional `description`, `project_id`, `board_id`, `task_list_id`, `assignee_id` (use `"me"`), `due_date`, `status`. |
+| `update_task_details` | Update title and/or description. Requires `task_id`. Optional `title`, `description`. |
+| `update_task_assignment` | Set or clear a task's assignee. Requires `task_id`, `assignee_id` (use `"me"` or `"null"`). |
+| `update_task_status` | Set task status by `workflow_status_id` OR `status_name` (case-insensitive, partial match). Requires `task_id`. |
+| `update_task_sprint` | Move task to one or more sprints (custom field). Requires `task_id`. |
+| `reposition_task` | Reposition a task within its list. Requires `taskId`. Optional `move_before_id`, `move_after_id`. |
+| `move_task_to_list` | Move a task to a different task list. Requires `task_id`, `task_list_id`. |
+| `add_to_backlog` | Add a task to the project backlog. Creates a Backlog list if missing. Requires `task_id`. |
+| `create_tasks_batch` | Create multiple tasks at once. Requires `tasks` array. |
+| `delete_task` | Permanently delete a task. Destructive. Requires `task_id`. |
+
+### Subtasks
+
+| Tool | Description |
+|------|-------------|
+| `list_subtasks` | List child tasks of a parent. Requires `parent_task_id`. Optional `limit`. |
+| `create_subtask` | Create a subtask under a parent. Requires `parent_task_id`, `title`. Optional `project_id`, `task_list_id`, `assignee_id` (use `"me"`), `due_date`, `description`. |
+
+### Task Todos / Checklists
+
+| Tool | Description |
+|------|-------------|
+| `list_todos` | List checklist items on a task. Requires `task_id`. |
+| `get_todo` | Get a single todo. Requires `todo_id`. |
+| `create_todo` | Add a checklist item. Requires `task_id`, `title`. |
+| `update_todo` | Rename a todo or toggle completed. Requires `todo_id`. Optional `title`, `completed`. |
+| `delete_todo` | Delete a checklist item. Destructive. Requires `todo_id`. |
+
+### Task Dependencies
+
+| Tool | Description |
+|------|-------------|
+| `list_task_dependencies` | List dependencies for a task. Requires `task_id`. |
+| `get_task_dependency` | Get a single dependency by ID. Requires `dependency_id`. |
+| `add_task_dependency` | Link two tasks. Requires `task_id`, `depends_on_task_id`. Optional `type` (`blocking` | `waiting_on` | `related`). |
+| `remove_task_dependency` | Remove a dependency by its ID. Destructive. Requires `dependency_id`. |
+
+### Comments
+
+| Tool | Description |
+|------|-------------|
+| `list_comments` | List comments on a task. Requires `task_id`. Optional `project_id`, `limit`. |
+| `get_comment` | Get a comment by ID. Requires `comment_id`. |
+| `add_task_comment` | Add a comment to a task. Requires `task_id`, `comment`. |
+| `update_comment` | Edit a comment's body. Requires `comment_id`, `body`. |
+| `pin_comment` | Pin a comment to the top. Requires `comment_id`. |
+| `unpin_comment` | Unpin a comment. Requires `comment_id`. |
+| `add_comment_reaction` | Add a reaction (e.g. `like`). Requires `comment_id`, `reaction`. |
+| `delete_comment` | Delete a comment. Destructive. Requires `comment_id`. |
+
+### Attachments
+
+| Tool | Description |
+|------|-------------|
+| `list_attachments` | List file attachments on a task or comment. Requires `task_id` or `comment_id`. |
+
+### Boards & Task Lists
+
+| Tool | Description |
+|------|-------------|
+| `list_boards` | List boards in a project. |
+| `create_board` | Create a board. Requires `project_id`, `name`. |
+| `list_task_lists` | List task lists. Optional `board_id`, `limit`. |
+| `get_task_list` | Get a single task list. Requires `task_list_id`. |
+| `create_task_list` | Create a task list. Requires `board_id`, `project_id`, `name`. |
+| `update_task_list` | Rename a task list. Requires `task_list_id`, `name`. |
+| `archive_task_list` | Archive a task list (reversible). Requires `task_list_id`. |
+| `restore_task_list` | Restore an archived task list. Requires `task_list_id`. |
+| `reposition_task_list` | Reposition a task list. Requires `task_list_id`. Optional `move_before_id`. |
+
+### Folders
+
+Folders group boards within a project.
+
+| Tool | Description |
+|------|-------------|
+| `list_folders` | List folders. Optional `project_id`, `status` (1=active, 2=archived), `limit`. |
+| `get_folder` | Get a single folder. Requires `folder_id`. |
+| `create_folder` | Create a folder. Requires `project_id`, `name`. |
+| `update_folder` | Rename a folder. Requires `folder_id`, `name`. |
+| `archive_folder` | Archive a folder (reversible). Requires `folder_id`. |
+| `restore_folder` | Restore an archived folder. Requires `folder_id`. |
+
+### Workflow Statuses
+
+| Tool | Description |
+|------|-------------|
+| `list_workflow_statuses` | List workflow statuses. Optional `workflow_id`, `category_id` (1=Not Started, 2=Started, 3=Closed), `limit`. |
+
+### Time Entries
 
 Time entry creation follows a 5-step workflow: **project → deal → service → task → create**.
 
-##### `list_time_entries`
-View existing time entries with detailed information including service and budget relationships. Use `"me"` for `person_id` if `PRODUCTIVE_USER_ID` is configured.
+| Tool | Description |
+|------|-------------|
+| `list_time_entries` | View existing time entries. Optional `date`, `after`, `before`, `person_id` (use `"me"`), `project_id`, `limit`. |
+| `create_time_entry` | Create a time entry (step 5 of the workflow). Requires `service_id`, `time`, `date`, `note` (≥10 chars). |
+| `update_time_entry` | Update an existing time entry. Requires `time_entry_id`. Optional `time`, `note`, `date`. |
+| `delete_time_entry` | Delete a time entry. Destructive. Requires `time_entry_id`. |
+| `list_services` | List all services in the org. |
+| `list_project_deals` | List deals/budgets for a project (step 2). Requires `project_id`. |
+| `list_deal_services` | List services for a deal (step 3). Requires `deal_id`. |
+| `get_project_services` | Convenience: get services for a project across all deals. Requires `project_id`. |
 
-Filters: date, date range (after/before), person, project.
+### Memberships
 
-```
-"Show my time entries for today"
-"What did I log last week?"
-"Show time entries for project 12345 this month"
-```
+| Tool | Description |
+|------|-------------|
+| `list_memberships` | List project/team memberships. Optional `project_id`, `person_id`, `limit`. |
 
-##### `create_time_entry`
-*(Step 5 of timesheet workflow)* Create a time entry. Requires a valid `service_id` from the workflow hierarchy and a detailed work description (minimum 10 characters).
+### Expenses
 
-```
-"Log 2 hours to service 789 today — worked on API integration"
-```
+| Tool | Description |
+|------|-------------|
+| `list_expenses` | List expenses. Optional `person_id` (use `"me"`), `project_id`, `after`, `before`, `limit`. |
+| `create_expense` | Log an expense. Requires `date`, `amount`. Optional `project_id`, `deal_id`, `note`, `billable`. |
 
-Use the `timesheet` prompt for a guided walk-through.
+### Invoices
 
-##### `update_time_entry`
-Update an existing time entry. Provide only the fields to change.
+| Tool | Description |
+|------|-------------|
+| `list_invoices` | List invoices. Optional `company_id`, `project_id`, `status`, `after`, `before`, `limit`. |
+| `get_invoice` | Get a single invoice. Requires `invoice_id`. |
 
-```
-"Change time entry 123 to 3 hours"
-"Update the note on time entry 123"
-```
+### Activity & Pages
 
-##### `delete_time_entry`
-Delete a time entry. This action is irreversible.
-
-```
-"Delete time entry 123"
-```
-
-##### `list_services`
-List all services in the organisation. For timesheet creation, prefer the structured workflow (`list_project_deals` → `list_deal_services`) to get services scoped to the correct project and budget.
-
-```
-"What services exist in the org?"
-```
-
-##### `list_project_deals`
-*(Step 2 of timesheet workflow)* Get deals/budgets for a specific project.
-
-```
-"What deals does project 12345 have?"
-```
-
-##### `list_deal_services`
-*(Step 3 of timesheet workflow)* Get services for a specific deal/budget.
-
-```
-"What services are under deal 456?"
-```
+| Tool | Description |
+|------|-------------|
+| `list_activities` | List activities (changes/updates). Optional `project_id`, `person_id`, date range, `limit`. |
+| `get_recent_updates` | Summary of recent updates with breakdown by item type. Optional `days`. |
+| `list_pages` | List knowledge base pages. Optional `project_id`, `limit`. |
+| `get_page` | Get full content of a page. Requires `page_id`. |
+| `create_page` | Create a new page. Requires `project_id`, `title`. Optional `body` (HTML), `parent_page_id`. |
+| `update_page` | Update title and/or body. Requires `page_id`. Optional `title`, `body`. |
+| `move_page` | Move a page under another parent. Requires `page_id`, `target_doc_id`. |
+| `copy_page` | Copy a page from a template. Requires `template_id`. Optional `project_id`. |
+| `delete_page` | Delete a page. Destructive. Requires `page_id`. |
 
 ---
 
-#### Memberships
-
-##### `list_memberships`
-List project memberships — see which people are members of a project, or which projects a person belongs to.
-
-```
-"Who is a member of project 12345?"
-"What projects is person 67890 on?"
-```
-
----
-
-#### Expenses
-
-##### `list_expenses`
-List expenses. Filter by person, project, or date range. Use `"me"` for `person_id` if `PRODUCTIVE_USER_ID` is configured.
-
-```
-"Show my expenses this month"
-"What expenses are logged for project 12345?"
-```
-
-##### `create_expense`
-Create a new expense record. Can be linked to a project and/or deal/budget.
-
-```
-"Log a €45 train expense for project 12345"
-```
-
----
-
-#### Invoices
-
-##### `list_invoices`
-List invoices. Filter by company, project, status (1=draft, 2=sent, 3=paid, 4=canceled), and date range.
-
-```
-"Show all sent invoices"
-"What invoices are outstanding for company 789?"
-```
-
-##### `get_invoice`
-Get detailed information about a specific invoice.
-
-```
-"Show invoice 456 details"
-```
-
----
-
-#### Activity & Pages
-
-##### `list_activities`
-List activities (changes/updates) from Productive.io with filtering. Use to track recent work across projects and people.
-
-```
-"What changed in project 12345 today?"
-"Show recent activity for person 67890"
-```
-
-##### `get_recent_updates`
-Get a summary of recent updates and changes in the last N days, with a breakdown by item type.
-
-```
-"What's changed in the last 7 days?"
-"Give me a summary of recent updates"
-```
-
-##### `list_pages`
-List knowledge base pages in Productive.io. Filter by project to see project-specific documentation.
-
-```
-"Show pages for project 12345"
-"List all knowledge base pages"
-```
-
-##### `get_page`
-Get the full content of a specific knowledge base page.
-
-```
-"Show the content of page 789"
-```
-
----
-
-#### rb2 Delivery Tools
+### rb2 Delivery Tools
 
 These tools are extended beyond the core Productive.io API and are tailored for rb2's delivery workflow.
 
-##### `get_budget_burn`
-Analyse budget burn for projects. Returns budget value, amount spent, burn %, remaining, and RAG status per budget deal.
+| Tool | Description |
+|------|-------------|
+| `get_budget_burn` | Budget burn analysis with RAG status (Green <70%, Amber 70-90%, Red >90%). Optional `min_burn_pct`, `project_id`. |
+| `get_resource_plan` | Team bookings and utilisation for a date range. Optional `person_name`, `project_id`, `after`, `before`. |
+| `get_overbooked_people` | Detect team members exceeding capacity. Optional `threshold_pct`, `after`, `before`. |
+| `get_org_overview` | rb2 headcount per subsidiary (NL, SCAPE, Code Blue, CN, PT, NG) with active project counts. |
+| `list_bookings` | Raw resource bookings/capacity entries. Optional `person_id` (use `"me"`), `project_id`, date range. |
 
-- 🟢 Green — under 70% burned
-- 🟡 Amber — 70–90% burned
-- 🔴 Red — over 90% burned
+---
 
-Use `min_burn_pct` to filter to at-risk projects only.
+## Common Workflows
 
-```
-"Show me budget burn for all active projects"
-"Which projects are over 80% burned?"
-"Show only red and amber projects"
-```
+### Updating task status by name
 
-##### `get_resource_plan`
-View team bookings and utilisation for a date range. Shows bookings with person, project, hours/day, and utilisation %. Use `person_name` and `project_id` for focused planning views.
+`update_task_status` accepts a `status_name` instead of an ID — it auto-resolves against the project's workflow statuses (case-insensitive, partial match).
 
 ```
-"Show me the resource plan for the next 4 weeks"
-"What is Marthin booked on this month?"
-"Show capacity for the NL team next sprint"
+"Move task 12345 to In Progress"
+   → update_task_status(task_id="12345", status_name="In Progress")
 ```
 
-##### `get_overbooked_people`
-Detect team members with overlapping bookings exceeding capacity threshold.
+If the name is ambiguous or missing, the tool returns the available statuses so you can retry with `workflow_status_id`.
+
+### Creating a subtask
 
 ```
-"Who is overbooked this month?"
-"Check for overbooking above 90% capacity next 2 weeks"
+"Add a subtask 'Write tests' under task 12345 assigned to me"
+   → create_subtask(parent_task_id="12345", title="Write tests", assignee_id="me")
 ```
 
-##### `get_org_overview`
-High-level snapshot of active projects and headcount per rb2 subsidiary: NL, SCAPE, Code Blue, CN, PT, NG.
+### Logging time (5-step flow)
 
 ```
-"Give me an org overview"
-"How many active projects does rb2 NL have?"
-"Show headcount per subsidiary"
+list_projects
+   → list_project_deals(project_id)
+      → list_deal_services(deal_id)
+         → get_project_tasks(project_id)         # optional, to link a task
+            → create_time_entry(service_id, time, date, note)
 ```
 
-##### `list_bookings`
-List raw resource bookings/capacity planning entries. Shows planned work allocation for people on projects over date ranges. Use to check availability and planned capacity. Use `"me"` for `person_id` if `PRODUCTIVE_USER_ID` is configured.
+The simplest approach is to use the `timesheet` prompt, which walks through every step automatically.
+
+### Managing knowledge base pages
 
 ```
-"Show all bookings for next week"
-"What am I booked on this month?"
+"Create a runbook for project 12345 with the deployment steps"
+   → create_page(project_id="12345", title="Deployment Runbook", body="<p>...</p>")
+
+"Move page 999 under page 100"
+   → move_page(page_id="999", target_doc_id="100")
+```
+
+### Pinning an important comment
+
+```
+list_comments(task_id) → pick the comment ID → pin_comment(comment_id)
 ```
 
 ---
 
-### Prompts (5 total)
+## Prompts (5 total)
 
 Prompts are pre-built workflow templates that guide the AI through multi-step operations. Invoke them by name in Claude Desktop or with `/mcp__productive__<name>` in Claude Code.
 
-#### `timesheet`
+### `timesheet`
 Guided workflow for creating timesheet entries. Walks through project → budget → service → task → time entry selection with proper validation. Accepts optional hints to pre-fill the workflow.
 
 Arguments:
@@ -628,12 +375,7 @@ Arguments:
 - `time` — duration like `"2h"`, `"120m"`, `"1.5h"` (optional)
 - `work_description` — brief description of work performed (optional)
 
-```
-"Help me log time for today" → use timesheet prompt
-"Log 2 hours to Gadero for yesterday" → timesheet with project=Gadero, date=yesterday, time=2h
-```
-
-#### `quick_timesheet`
+### `quick_timesheet`
 Step-by-step guidance for a specific stage of the timesheet workflow. Use when you're already partway through and need help with a specific step: `project`, `budget`, `service`, `task`, or `create`.
 
 Arguments:
@@ -643,63 +385,40 @@ Arguments:
 - `service_id` — service ID if already selected (optional)
 - `task_id` — task ID if already selected (optional)
 
-#### `weekly_report`
+### `weekly_report`
 Generate a structured weekly status report for a team member: time logged, tasks completed, in-progress work.
 
 Arguments:
 - `person_id` — person to report on (leave blank to use the configured user)
 - `week_start` — start of the week in `YYYY-MM-DD` format (defaults to current Monday)
 
-```
-"Generate my weekly report"
-"Weekly report for person 67890, week starting 2025-05-05"
-```
-
-#### `project_health`
+### `project_health`
 Full project health check: budget burn, open tasks, team capacity, and recent activity — produces a RAG-rated summary.
 
 Arguments:
 - `project_id` — the Productive.io project ID to analyse
 
-```
-"Run a health check on project 12345"
-"How is project 12345 doing overall?"
-```
-
-#### `sprint_planning`
+### `sprint_planning`
 Walk through sprint planning: review backlog, check capacity, select tasks, create new ones, and assign the team.
 
 Arguments:
 - `project_id` — the project ID to plan the sprint for
 - `sprint_name` — name for the new sprint (e.g. `"Sprint 12"`)
 
-```
-"Help me plan Sprint 12 for project 12345"
-```
-
 ---
 
-### Resources (6 total)
+## Resources (6 total)
 
 Resources are read-only data sources you can reference directly. In Claude, prefix with `@productive` or use the URI scheme `productive://`.
 
-#### `productive://projects`
-All active projects in Productive.io — names, IDs, and status.
-
-#### `productive://org/overview`
-rb2 headcount per subsidiary and total active projects.
-
-#### `productive://me/tasks`
-Open tasks assigned to the configured user. Requires `PRODUCTIVE_USER_ID`.
-
-#### `productive://me/today`
-Time entries logged today by the configured user. Requires `PRODUCTIVE_USER_ID`.
-
-#### `productive://projects/{id}/tasks` *(template)*
-Open tasks for a specific project. Replace `{id}` with the project ID.
-
-#### `productive://tasks/{id}` *(template)*
-Full details of a specific task. Replace `{id}` with the task ID.
+| Resource | Description |
+|----------|-------------|
+| `productive://projects` | All active projects in Productive.io — names, IDs, and status. |
+| `productive://org/overview` | rb2 headcount per subsidiary and total active projects. |
+| `productive://me/tasks` | Open tasks assigned to the configured user. Requires `PRODUCTIVE_USER_ID`. |
+| `productive://me/today` | Time entries logged today by the configured user. Requires `PRODUCTIVE_USER_ID`. |
+| `productive://projects/{id}/tasks` *(template)* | Open tasks for a specific project. Replace `{id}`. |
+| `productive://tasks/{id}` *(template)* | Full details of a specific task. Replace `{id}`. |
 
 ---
 

@@ -21,6 +21,8 @@ import {
   ProductiveError,
   ProductiveExpense,
   ProductiveExpenseCreate,
+  ProductiveFolder,
+  ProductiveFolderCreate,
   ProductiveInvoice,
   ProductiveMembership,
   ProductivePage,
@@ -55,6 +57,7 @@ import * as companies from './resources/companies.js';
 import * as deals from './resources/deals.js';
 import * as dependencies from './resources/dependencies.js';
 import * as expenses from './resources/expenses.js';
+import * as folders from './resources/folders.js';
 import * as invoices from './resources/invoices.js';
 import * as memberships from './resources/memberships.js';
 import * as pages from './resources/pages.js';
@@ -183,6 +186,9 @@ export class ProductiveAPIClient {
   ): Promise<ProductiveResponse<ProductiveTask>> {
     return tasks.listSubtasks(this.request, parentTaskId, params);
   }
+  deleteTask(taskId: string): Promise<void> {
+    return tasks.deleteTask(this.request, taskId);
+  }
   repositionTask(
     taskId: string,
     attributes: {
@@ -212,10 +218,35 @@ export class ProductiveAPIClient {
   ): Promise<ProductiveResponse<ProductiveTaskList>> {
     return taskLists.listTaskLists(this.request, params);
   }
+  getTaskList(
+    taskListId: string
+  ): Promise<ProductiveSingleResponse<ProductiveTaskList>> {
+    return taskLists.getTaskList(this.request, taskListId);
+  }
   createTaskList(
     data: ProductiveTaskListCreate
   ): Promise<ProductiveSingleResponse<ProductiveTaskList>> {
     return taskLists.createTaskList(this.request, data);
+  }
+  updateTaskList(
+    taskListId: string,
+    attrs: { name: string }
+  ): Promise<ProductiveSingleResponse<ProductiveTaskList>> {
+    return taskLists.updateTaskList(this.request, taskListId, attrs);
+  }
+  archiveTaskList(taskListId: string): Promise<void> {
+    return taskLists.archiveTaskList(this.request, taskListId);
+  }
+  restoreTaskList(
+    taskListId: string
+  ): Promise<ProductiveSingleResponse<ProductiveTaskList>> {
+    return taskLists.restoreTaskList(this.request, taskListId);
+  }
+  repositionTaskList(
+    taskListId: string,
+    attrs: { move_before_id?: string }
+  ): Promise<ProductiveSingleResponse<ProductiveTaskList>> {
+    return taskLists.repositionTaskList(this.request, taskListId, attrs);
   }
 
   // ─── People ────────────────────────────────────────────────────────────────
@@ -246,10 +277,35 @@ export class ProductiveAPIClient {
   }
 
   // ─── Comments ──────────────────────────────────────────────────────────────
+  listComments(
+    params: comments.ListCommentsParams
+  ): Promise<ProductiveResponse<ProductiveComment>> {
+    return comments.listComments(this.request, params);
+  }
+  getComment(
+    commentId: string
+  ): Promise<ProductiveSingleResponse<ProductiveComment>> {
+    return comments.getComment(this.request, commentId);
+  }
   createComment(
     data: ProductiveCommentCreate
   ): Promise<ProductiveSingleResponse<ProductiveComment>> {
     return comments.createComment(this.request, data);
+  }
+  updateComment(
+    commentId: string,
+    attrs: { body?: string; pinned?: boolean }
+  ): Promise<ProductiveSingleResponse<ProductiveComment>> {
+    return comments.updateComment(this.request, commentId, attrs);
+  }
+  deleteComment(commentId: string): Promise<void> {
+    return comments.deleteComment(this.request, commentId);
+  }
+  addCommentReaction(
+    commentId: string,
+    reaction: string
+  ): Promise<ProductiveSingleResponse<{ id: string; type: string; attributes: Record<string, unknown> }>> {
+    return comments.addCommentReaction(this.request, commentId, reaction);
   }
 
   // ─── Workflow statuses ─────────────────────────────────────────────────────
@@ -385,6 +441,11 @@ export class ProductiveAPIClient {
   ): Promise<ProductiveResponse<ProductiveTodo>> {
     return todos.listTodos(this.request, taskId);
   }
+  getTodo(
+    todoId: string
+  ): Promise<ProductiveSingleResponse<ProductiveTodo>> {
+    return todos.getTodo(this.request, todoId);
+  }
   createTodo(
     data: ProductiveTodoCreate
   ): Promise<ProductiveSingleResponse<ProductiveTodo>> {
@@ -406,6 +467,11 @@ export class ProductiveAPIClient {
   ): Promise<ProductiveResponse<ProductiveDependency>> {
     return dependencies.listTaskDependencies(this.request, taskId);
   }
+  getTaskDependency(
+    dependencyId: string
+  ): Promise<ProductiveSingleResponse<ProductiveDependency>> {
+    return dependencies.getTaskDependency(this.request, dependencyId);
+  }
   addTaskDependency(
     depData: ProductiveDependencyCreate
   ): Promise<ProductiveSingleResponse<ProductiveDependency>> {
@@ -425,6 +491,63 @@ export class ProductiveAPIClient {
     pageId: string
   ): Promise<ProductiveSingleResponse<ProductivePage>> {
     return pages.getPage(this.request, pageId);
+  }
+  createPage(
+    input: pages.CreatePageInput
+  ): Promise<ProductiveSingleResponse<ProductivePage>> {
+    return pages.createPage(this.request, input);
+  }
+  updatePage(
+    pageId: string,
+    input: pages.UpdatePageInput
+  ): Promise<ProductiveSingleResponse<ProductivePage>> {
+    return pages.updatePage(this.request, pageId, input);
+  }
+  deletePage(pageId: string): Promise<void> {
+    return pages.deletePage(this.request, pageId);
+  }
+  movePage(
+    pageId: string,
+    targetDocId: string
+  ): Promise<ProductiveSingleResponse<ProductivePage>> {
+    return pages.movePage(this.request, pageId, targetDocId);
+  }
+  copyPage(
+    templateId: string,
+    projectId?: string
+  ): Promise<ProductiveSingleResponse<ProductivePage>> {
+    return pages.copyPage(this.request, templateId, projectId);
+  }
+
+  // ─── Folders ───────────────────────────────────────────────────────────────
+  listFolders(
+    params?: folders.ListFoldersParams
+  ): Promise<ProductiveResponse<ProductiveFolder>> {
+    return folders.listFolders(this.request, params);
+  }
+  getFolder(
+    folderId: string
+  ): Promise<ProductiveSingleResponse<ProductiveFolder>> {
+    return folders.getFolder(this.request, folderId);
+  }
+  createFolder(
+    data: ProductiveFolderCreate
+  ): Promise<ProductiveSingleResponse<ProductiveFolder>> {
+    return folders.createFolder(this.request, data);
+  }
+  updateFolder(
+    folderId: string,
+    attrs: { name: string }
+  ): Promise<ProductiveSingleResponse<ProductiveFolder>> {
+    return folders.updateFolder(this.request, folderId, attrs);
+  }
+  archiveFolder(folderId: string): Promise<void> {
+    return folders.archiveFolder(this.request, folderId);
+  }
+  restoreFolder(
+    folderId: string
+  ): Promise<ProductiveSingleResponse<ProductiveFolder>> {
+    return folders.restoreFolder(this.request, folderId);
   }
 
   // ─── Attachments ───────────────────────────────────────────────────────────

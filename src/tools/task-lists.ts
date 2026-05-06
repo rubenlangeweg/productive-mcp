@@ -195,3 +195,188 @@ export const createTaskListTool = {
     required: ['board_id', 'project_id', 'name'],
   },
 };
+
+// ─── Additional task list tools ──────────────────────────────────────────────
+
+const getTaskListSchema = z.object({
+  task_list_id: z.string().min(1, 'Task list ID is required'),
+});
+
+const updateTaskListSchema = z.object({
+  task_list_id: z.string().min(1, 'Task list ID is required'),
+  name: z.string().min(1, 'Name is required'),
+});
+
+const taskListIdOnlySchema = z.object({
+  task_list_id: z.string().min(1, 'Task list ID is required'),
+});
+
+const repositionTaskListSchema = z.object({
+  task_list_id: z.string().min(1, 'Task list ID is required'),
+  move_before_id: z.string().optional(),
+});
+
+function handleTaskListError(error: unknown): never {
+  if (error instanceof z.ZodError) {
+    throw new McpError(
+      ErrorCode.InvalidParams,
+      `Invalid parameters: ${error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+    );
+  }
+  if (error instanceof Error) {
+    throw new McpError(ErrorCode.InternalError, `API error: ${error.message}`);
+  }
+  throw new McpError(ErrorCode.InternalError, 'Unknown error occurred');
+}
+
+export async function getTaskList(
+  client: ProductiveAPIClient,
+  args: unknown
+): Promise<{ content: Array<{ type: string; text: string }> }> {
+  try {
+    const params = getTaskListSchema.parse(args);
+    const response = await client.getTaskList(params.task_list_id);
+    const tl = response.data;
+    let text = `Task List: ${tl.attributes.name} (ID: ${tl.id})\n`;
+    if (tl.attributes.description) text += `Description: ${tl.attributes.description}\n`;
+    if (tl.attributes.position !== undefined) text += `Position: ${tl.attributes.position}\n`;
+    if (tl.relationships?.board?.data?.id) text += `Board ID: ${tl.relationships.board.data.id}\n`;
+    if (tl.attributes.created_at) text += `Created: ${tl.attributes.created_at}\n`;
+    if (tl.attributes.updated_at) text += `Updated: ${tl.attributes.updated_at}`;
+    return { content: [{ type: 'text', text }] };
+  } catch (error) {
+    handleTaskListError(error);
+  }
+}
+
+export async function updateTaskList(
+  client: ProductiveAPIClient,
+  args: unknown
+): Promise<{ content: Array<{ type: string; text: string }> }> {
+  try {
+    const params = updateTaskListSchema.parse(args);
+    const response = await client.updateTaskList(params.task_list_id, { name: params.name });
+    return {
+      content: [{
+        type: 'text',
+        text: `Task list ${response.data.id} renamed to "${response.data.attributes.name}".`,
+      }],
+    };
+  } catch (error) {
+    handleTaskListError(error);
+  }
+}
+
+export async function archiveTaskList(
+  client: ProductiveAPIClient,
+  args: unknown
+): Promise<{ content: Array<{ type: string; text: string }> }> {
+  try {
+    const params = taskListIdOnlySchema.parse(args);
+    await client.archiveTaskList(params.task_list_id);
+    return {
+      content: [{ type: 'text', text: `Task list ${params.task_list_id} archived. Use restore_task_list to bring it back.` }],
+    };
+  } catch (error) {
+    handleTaskListError(error);
+  }
+}
+
+export async function restoreTaskList(
+  client: ProductiveAPIClient,
+  args: unknown
+): Promise<{ content: Array<{ type: string; text: string }> }> {
+  try {
+    const params = taskListIdOnlySchema.parse(args);
+    const response = await client.restoreTaskList(params.task_list_id);
+    return {
+      content: [{ type: 'text', text: `Task list ${response.data.id} restored.` }],
+    };
+  } catch (error) {
+    handleTaskListError(error);
+  }
+}
+
+export async function repositionTaskList(
+  client: ProductiveAPIClient,
+  args: unknown
+): Promise<{ content: Array<{ type: string; text: string }> }> {
+  try {
+    const params = repositionTaskListSchema.parse(args);
+    const attrs: { move_before_id?: string } = {};
+    if (params.move_before_id !== undefined) attrs.move_before_id = params.move_before_id;
+    const response = await client.repositionTaskList(params.task_list_id, attrs);
+    let text = `Task list ${response.data.id} repositioned.`;
+    if (params.move_before_id) text += ` Moved before task list ${params.move_before_id}.`;
+    return { content: [{ type: 'text', text }] };
+  } catch (error) {
+    handleTaskListError(error);
+  }
+}
+
+export const getTaskListTool = {
+  name: 'get_task_list',
+  description: 'Get details of a specific task list by its ID.',
+  annotations: { readOnlyHint: true },
+  inputSchema: {
+    type: 'object',
+    properties: {
+      task_list_id: { type: 'string', description: 'The ID of the task list' },
+    },
+    required: ['task_list_id'],
+  },
+};
+
+export const updateTaskListTool = {
+  name: 'update_task_list',
+  description: 'Rename an existing task list.',
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+  inputSchema: {
+    type: 'object',
+    properties: {
+      task_list_id: { type: 'string', description: 'The ID of the task list to rename' },
+      name: { type: 'string', description: 'New name for the task list' },
+    },
+    required: ['task_list_id', 'name'],
+  },
+};
+
+export const archiveTaskListTool = {
+  name: 'archive_task_list',
+  description: 'Archive a task list. This is reversible — use restore_task_list to undo.',
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+  inputSchema: {
+    type: 'object',
+    properties: {
+      task_list_id: { type: 'string', description: 'The ID of the task list to archive' },
+    },
+    required: ['task_list_id'],
+  },
+};
+
+export const restoreTaskListTool = {
+  name: 'restore_task_list',
+  description: 'Restore a previously archived task list.',
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+  inputSchema: {
+    type: 'object',
+    properties: {
+      task_list_id: { type: 'string', description: 'The ID of the task list to restore' },
+    },
+    required: ['task_list_id'],
+  },
+};
+
+export const repositionTaskListTool = {
+  name: 'reposition_task_list',
+  description: 'Reposition a task list within its board. Optionally move it before another task list.',
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+  inputSchema: {
+    type: 'object',
+    properties: {
+      task_list_id: { type: 'string', description: 'The ID of the task list to move' },
+      move_before_id: { type: 'string', description: 'Optional — ID of the task list to move this one before' },
+    },
+    required: ['task_list_id'],
+  },
+};

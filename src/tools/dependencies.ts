@@ -147,3 +147,45 @@ export const removeTaskDependencyDefinition = {
     required: ['dependency_id'],
   },
 };
+
+const getDepSchema = z.object({
+  dependency_id: z.string().min(1, 'Dependency ID is required'),
+});
+
+export async function getTaskDependencyTool(
+  client: ProductiveAPIClient,
+  args: unknown
+): Promise<{ content: Array<{ type: string; text: string }> }> {
+  try {
+    const params = getDepSchema.parse(args);
+    const response = await client.getTaskDependency(params.dependency_id);
+    const dep = response.data;
+    const taskId = dep.relationships?.task?.data?.id ?? 'unknown';
+    const dependsOnId = dep.relationships?.depends_on?.data?.id ?? 'unknown';
+    const typeStr = dep.attributes.type_string ?? 'related';
+    let text = `Dependency ID: ${dep.id}\n`;
+    text += `Type: ${typeStr}\n`;
+    text += `Task ID: ${taskId} → ${typeStr} → Task ID: ${dependsOnId}\n`;
+    if (dep.attributes.created_at) text += `Created: ${dep.attributes.created_at}\n`;
+    if (dep.attributes.updated_at) text += `Updated: ${dep.attributes.updated_at}`;
+    return { content: [{ type: 'text', text }] };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new McpError(ErrorCode.InvalidParams, `Invalid parameters: ${error.errors.map(e => e.message).join(', ')}`);
+    }
+    throw new McpError(ErrorCode.InternalError, error instanceof Error ? error.message : 'Unknown error occurred');
+  }
+}
+
+export const getTaskDependencyDefinition = {
+  name: 'get_task_dependency',
+  description: 'Get a single task dependency by its ID.',
+  annotations: { readOnlyHint: true },
+  inputSchema: {
+    type: 'object',
+    properties: {
+      dependency_id: { type: 'string', description: 'The ID of the dependency to retrieve' },
+    },
+    required: ['dependency_id'],
+  },
+};

@@ -71,3 +71,121 @@ export const listSubtasksDefinition = {
   },
   outputSchema: listSubtasksOutputSchema.shape,
 };
+
+// ─── create_subtask ──────────────────────────────────────────────────────────
+
+const createSubtaskSchema = z.object({
+  parent_task_id: z.string().min(1, 'Parent task ID is required'),
+  title: z.string().min(1, 'Title is required'),
+  project_id: z.string().optional(),
+  task_list_id: z.string().optional(),
+  assignee_id: z.string().optional(),
+  due_date: z.string().optional(),
+  description: z.string().optional(),
+});
+
+interface SubtaskRelationships {
+  parent: { data: { id: string; type: 'tasks' } };
+  project?: { data: { id: string; type: 'projects' } };
+  task_list?: { data: { id: string; type: 'task_lists' } };
+  assignee?: { data: { id: string; type: 'people' } };
+}
+
+export async function createSubtaskTool(
+  client: ProductiveAPIClient,
+  args: unknown,
+  config?: { PRODUCTIVE_USER_ID?: string }
+): Promise<{ content: Array<{ type: string; text: string }> }> {
+  try {
+    const params = createSubtaskSchema.parse(args);
+
+    let assigneeId = params.assignee_id;
+    if (assigneeId === 'me') {
+      if (!config?.PRODUCTIVE_USER_ID) {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          'Cannot use "me" reference - PRODUCTIVE_USER_ID is not configured in environment'
+        );
+      }
+      assigneeId = config.PRODUCTIVE_USER_ID;
+    }
+
+    const relationships: SubtaskRelationships = {
+      parent: { data: { id: params.parent_task_id, type: 'tasks' } },
+    };
+    if (params.project_id) {
+      relationships.project = { data: { id: params.project_id, type: 'projects' } };
+    }
+    if (params.task_list_id) {
+      relationships.task_list = { data: { id: params.task_list_id, type: 'task_lists' } };
+    }
+    if (assigneeId) {
+      relationships.assignee = { data: { id: assigneeId, type: 'people' } };
+    }
+
+    const attributes: { title: string; description?: string; due_date?: string } = {
+      title: params.title,
+    };
+    if (params.description !== undefined) attributes.description = params.description;
+    if (params.due_date !== undefined) attributes.due_date = params.due_date;
+
+    const response = await client.createTask({
+      data: {
+        type: 'tasks',
+        attributes,
+        // Cast: ProductiveTaskCreate's relationships type doesn't include
+        // `parent`, but the API accepts it. Use a structural cast rather than
+        // widening the public type.
+        relationships: relationships as unknown as {
+          project?: { data: { id: string; type: 'projects' } };
+          assignee?: { data: { id: string; type: 'people' } };
+        },
+      },
+    });
+
+    const t = response.data;
+    let text = `Subtask created!\n`;
+    text += `Title: ${t.attributes.title} (ID: ${t.id})\n`;
+    text += `Parent task ID: ${params.parent_task_id}`;
+    if (params.project_id) text += `\nProject ID: ${params.project_id}`;
+    if (params.task_list_id) text += `\nTask List ID: ${params.task_list_id}`;
+    if (assigneeId) {
+      text += `\nAssignee ID: ${assigneeId}`;
+      if (params.assignee_id === 'me') text += ' (me)';
+    }
+    if (t.attributes.due_date) text += `\nDue date: ${t.attributes.due_date}`;
+    if (t.attributes.created_at) text += `\nCreated: ${t.attributes.created_at}`;
+
+    return { content: [{ type: 'text', text }] };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new McpError(
+        ErrorCode.InvalidParams,
+        `Invalid parameters: ${error.errors.map(e => e.message).join(', ')}`
+      );
+    }
+    throw new McpError(
+      ErrorCode.InternalError,
+      error instanceof Error ? error.message : 'Unknown error occurred'
+    );
+  }
+}
+
+export const createSubtaskDefinition = {
+  name: 'create_subtask',
+  description: 'Create a new subtask under a parent task. If PRODUCTIVE_USER_ID is configured, "me" can be used for assignee_id.',
+  annotations: { readOnlyHint: false, destructiveHint: false },
+  inputSchema: {
+    type: 'object',
+    properties: {
+      parent_task_id: { type: 'string', description: 'The ID of the parent task' },
+      title: { type: 'string', description: 'Subtask title' },
+      project_id: { type: 'string', description: 'Optional project ID for the subtask' },
+      task_list_id: { type: 'string', description: 'Optional task list ID for the subtask' },
+      assignee_id: { type: 'string', description: 'Optional assignee ID. Use "me" for the configured user.' },
+      due_date: { type: 'string', description: 'Optional due date in YYYY-MM-DD format' },
+      description: { type: 'string', description: 'Optional subtask description' },
+    },
+    required: ['parent_task_id', 'title'],
+  },
+};
