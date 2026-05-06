@@ -1,15 +1,22 @@
 import { config } from 'dotenv';
 import { z } from 'zod';
 
-// Silence dotenv output to stdout (MCP requires clean stdout)
-const originalWrite = process.stdout.write;
-process.stdout.write = () => true;
+// Skip loading `.env` during tests so the harness env (vitest.config.ts) is
+// authoritative. Without this guard, a developer's local `.env` would inject
+// real API tokens into the test process and the dotenv stub in tests/setup.ts
+// would not be enough on its own (this module loads at import time, before
+// vi.mock is applied for synchronous imports in some tools).
+if (process.env.NODE_ENV !== 'test') {
+  // Silence dotenv output to stdout (MCP requires clean stdout)
+  const originalWrite = process.stdout.write;
+  process.stdout.write = () => true;
 
-// Load environment variables
-config();
+  // Load environment variables
+  config();
 
-// Restore stdout.write
-process.stdout.write = originalWrite;
+  // Restore stdout.write
+  process.stdout.write = originalWrite;
+}
 
 const configSchema = z.object({
   PRODUCTIVE_API_TOKEN: z.string().min(1, 'API token is required'),
