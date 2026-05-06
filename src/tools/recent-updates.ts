@@ -50,7 +50,7 @@ export async function getRecentUpdates(
       updates.push({
         date: new Date(activity.attributes.created_at).toLocaleString(),
         type: itemType,
-        id: itemId,
+        id: String(itemId),
         ...(activity.relationships?.creator?.data?.id ? { creatorId: activity.relationships.creator.data.id } : {}),
         ...(activity.attributes.changes && Object.keys(activity.attributes.changes).length > 0
           ? { changes: activity.attributes.changes as Record<string, unknown> }

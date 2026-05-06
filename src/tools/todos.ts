@@ -12,13 +12,13 @@ const getTodoSchema = z.object({
 
 const createTodoSchema = z.object({
   task_id: z.string().min(1, 'Task ID is required'),
-  title: z.string().min(1, 'Todo title is required'),
+  description: z.string().min(1, 'Todo description is required'),
 });
 
 const updateTodoSchema = z.object({
   todo_id: z.string().min(1, 'Todo ID is required'),
-  title: z.string().min(1).optional(),
-  completed: z.boolean().optional(),
+  description: z.string().min(1).optional(),
+  closed: z.boolean().optional(),
 });
 
 const deleteTodoSchema = z.object({
@@ -40,7 +40,7 @@ export async function listTodosTool(
     }
 
     const items = response.data.map(todo =>
-      `${todo.attributes.completed ? '☑' : '☐'} ${todo.attributes.title} (ID: ${todo.id})`
+      `${todo.attributes.closed ? '☑' : '☐'} ${todo.attributes.description} (ID: ${todo.id})`
     ).join('\n');
 
     return {
@@ -67,7 +67,7 @@ export async function createTodoTool(
     const response = await client.createTodo({
       data: {
         type: 'todos',
-        attributes: { title: params.title },
+        attributes: { description: params.description },
         relationships: {
           task: { data: { id: params.task_id, type: 'tasks' } },
         },
@@ -77,7 +77,7 @@ export async function createTodoTool(
     return {
       content: [{
         type: 'text',
-        text: `Todo created successfully!\nTitle: ${response.data.attributes.title} (ID: ${response.data.id})\nTask ID: ${params.task_id}\nCompleted: ${response.data.attributes.completed}`,
+        text: `Todo created successfully!\nDescription: ${response.data.attributes.description} (ID: ${response.data.id})\nTask ID: ${params.task_id}\nClosed: ${response.data.attributes.closed}`,
       }],
     };
   } catch (error) {
@@ -95,20 +95,20 @@ export async function updateTodoTool(
   try {
     const params = updateTodoSchema.parse(args);
 
-    if (params.title === undefined && params.completed === undefined) {
-      throw new McpError(ErrorCode.InvalidParams, 'At least one of title or completed must be provided');
+    if (params.description === undefined && params.closed === undefined) {
+      throw new McpError(ErrorCode.InvalidParams, 'At least one of description or closed must be provided');
     }
 
-    const attrs: { title?: string; completed?: boolean } = {};
-    if (params.title !== undefined) attrs.title = params.title;
-    if (params.completed !== undefined) attrs.completed = params.completed;
+    const attrs: { description?: string; closed?: boolean } = {};
+    if (params.description !== undefined) attrs.description = params.description;
+    if (params.closed !== undefined) attrs.closed = params.closed;
 
     const response = await client.updateTodo(params.todo_id, attrs);
 
     return {
       content: [{
         type: 'text',
-        text: `Todo updated successfully!\nTitle: ${response.data.attributes.title} (ID: ${response.data.id})\nCompleted: ${response.data.attributes.completed}`,
+        text: `Todo updated successfully!\nDescription: ${response.data.attributes.description} (ID: ${response.data.id})\nClosed: ${response.data.attributes.closed}`,
       }],
     };
   } catch (error) {
@@ -158,9 +158,9 @@ export const createTodoDefinition = {
     type: 'object',
     properties: {
       task_id: { type: 'string', description: 'The ID of the task to add the todo to' },
-      title: { type: 'string', description: 'The todo item text' },
+      description: { type: 'string', description: 'The todo item text' },
     },
-    required: ['task_id', 'title'],
+    required: ['task_id', 'description'],
   },
 };
 
@@ -172,8 +172,8 @@ export const updateTodoDefinition = {
     type: 'object',
     properties: {
       todo_id: { type: 'string', description: 'The ID of the todo item' },
-      title: { type: 'string', description: 'New title for the todo item' },
-      completed: { type: 'boolean', description: 'Set to true to mark as done, false to mark as incomplete' },
+      description: { type: 'string', description: 'New description text for the todo item' },
+      closed: { type: 'boolean', description: 'Set to true to mark as done, false to mark as incomplete' },
     },
     required: ['todo_id'],
   },
@@ -201,8 +201,8 @@ export async function getTodoTool(
     const response = await client.getTodo(params.todo_id);
     const todo = response.data;
     const taskId = todo.relationships?.task?.data?.id;
-    let text = `${todo.attributes.completed ? '☑' : '☐'} ${todo.attributes.title} (ID: ${todo.id})\n`;
-    text += `Completed: ${todo.attributes.completed}\n`;
+    let text = `${todo.attributes.closed ? '☑' : '☐'} ${todo.attributes.description} (ID: ${todo.id})\n`;
+    text += `Closed: ${todo.attributes.closed}\n`;
     if (taskId) text += `Task ID: ${taskId}\n`;
     if (todo.attributes.position !== undefined) text += `Position: ${todo.attributes.position}\n`;
     if (todo.attributes.created_at) text += `Created: ${todo.attributes.created_at}\n`;

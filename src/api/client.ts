@@ -453,7 +453,7 @@ export class ProductiveAPIClient {
   }
   updateTodo(
     todoId: string,
-    attrs: { title?: string; completed?: boolean }
+    attrs: { description?: string; closed?: boolean }
   ): Promise<ProductiveSingleResponse<ProductiveTodo>> {
     return todos.updateTodo(this.request, todoId, attrs);
   }

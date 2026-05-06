@@ -6,7 +6,7 @@ import { ProductiveTaskUpdate } from '../api/types.js';
 const createTaskSchema = z.object({
   title: z.string().min(1, 'Task title is required'),
   description: z.string().optional(),
-  project_id: z.string().optional(),
+  project_id: z.string().min(1, 'Project ID is required'),
   board_id: z.string().optional(),
   task_list_id: z.string().optional(),
   assignee_id: z.string().optional(),
@@ -155,7 +155,7 @@ export const createTaskDefinition = {
       },
       project_id: {
         type: 'string',
-        description: 'ID of the project to add the task to',
+        description: 'ID of the project to add the task to (required by the API)',
       },
       board_id: {
         type: 'string',
@@ -179,7 +179,7 @@ export const createTaskDefinition = {
         description: 'Task status (default: open)',
       },
     },
-    required: ['title'],
+    required: ['title', 'project_id'],
   },
 };
 

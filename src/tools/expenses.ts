@@ -15,11 +15,12 @@ const listExpensesSchema = z.object({
 });
 
 const createExpenseSchema = z.object({
+  name: z.string().min(1, 'Expense name is required'),
   date: z.string().min(1, 'Date is required'),
   amount: z.number().positive('Amount must be positive'),
+  currency: z.string().min(1, 'Currency is required (e.g. EUR, USD)'),
+  service_id: z.string().min(1, 'Service ID is required — use get_project_services to find valid IDs'),
   person_id: z.string().min(1, 'Person ID is required'),
-  project_id: z.string().optional(),
-  deal_id: z.string().optional(),
   note: z.string().optional(),
   billable: z.boolean().optional().default(false),
 });
@@ -104,36 +105,32 @@ export async function createExpenseTool(
       data: {
         type: 'expenses',
         attributes: {
+          name: params.name,
           date: params.date,
           amount: params.amount,
+          currency: params.currency,
           note: params.note,
           billable: params.billable,
         },
         relationships: {
           person: { data: { id: personId, type: 'people' } },
+          service: { data: { id: params.service_id, type: 'services' } },
         },
       },
     };
-
-    if (params.project_id) {
-      expenseData.data.relationships.project = { data: { id: params.project_id, type: 'projects' } };
-    }
-    if (params.deal_id) {
-      expenseData.data.relationships.deal = { data: { id: params.deal_id, type: 'deals' } };
-    }
 
     const response = await client.createExpense(expenseData);
     const expense = response.data;
 
     let text = `Expense created successfully!\n`;
     text += `ID: ${expense.id}\n`;
+    text += `Name: ${expense.attributes.name ?? params.name}\n`;
     text += `Date: ${expense.attributes.date}\n`;
     text += `Amount: ${expense.attributes.amount}${expense.attributes.currency ? ` ${expense.attributes.currency}` : ''}\n`;
     text += `Billable: ${expense.attributes.billable ? 'Yes' : 'No'}\n`;
     if (expense.attributes.note) text += `Note: ${expense.attributes.note}\n`;
     text += `Person ID: ${personId}${params.person_id === 'me' ? ' (me)' : ''}\n`;
-    if (params.project_id) text += `Project ID: ${params.project_id}\n`;
-    if (params.deal_id) text += `Deal ID: ${params.deal_id}\n`;
+    text += `Service ID: ${params.service_id}\n`;
 
     return { content: [{ type: 'text', text }] };
   } catch (error) {
@@ -160,19 +157,20 @@ export const listExpensesDefinition = {
 
 export const createExpenseDefinition = {
   name: 'create_expense',
-  description: 'Create a new expense record in Productive.io. Expenses can be linked to a project and/or deal/budget.',
+  description: 'Create a new expense record in Productive.io. Use get_project_services to find a valid service_id first.',
   annotations: { readOnlyHint: false, destructiveHint: false },
   inputSchema: {
     type: 'object',
     properties: {
+      name: { type: 'string', description: 'Name/title of the expense (required)' },
       date: { type: 'string', description: 'Date of the expense (YYYY-MM-DD) (required)' },
       amount: { type: 'number', description: 'Expense amount (required)' },
+      currency: { type: 'string', description: 'Currency code, e.g. EUR, USD (required)' },
+      service_id: { type: 'string', description: 'Service ID to link this expense to — use get_project_services to find valid IDs (required)' },
       person_id: { type: 'string', description: 'Person ID who incurred the expense. Use "me" if PRODUCTIVE_USER_ID is configured. (required)' },
-      project_id: { type: 'string', description: 'Project ID to link this expense to (optional)' },
-      deal_id: { type: 'string', description: 'Deal/budget ID to link this expense to (optional)' },
-      note: { type: 'string', description: 'Description of the expense (optional)' },
+      note: { type: 'string', description: 'Additional notes (optional)' },
       billable: { type: 'boolean', description: 'Whether the expense is billable to the client (default: false)', default: false },
     },
-    required: ['date', 'amount', 'person_id'],
+    required: ['name', 'date', 'amount', 'currency', 'service_id', 'person_id'],
   },
 };

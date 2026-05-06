@@ -20,10 +20,11 @@ const SPRINT_MAPPING: Record<string, string> = {
 // Custom field ID for Sprint
 const SPRINT_CUSTOM_FIELD_ID = '69063';
 
-// Schema for sprint values - can be single string or array
+// Schema for sprint values - can be single string, array, or null to clear
 const sprintValueSchema = z.union([
   z.string(),
-  z.array(z.string())
+  z.array(z.string()),
+  z.null(),
 ]);
 
 const updateTaskSprintSchema = z.object({

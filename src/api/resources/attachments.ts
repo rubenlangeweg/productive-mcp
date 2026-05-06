@@ -16,11 +16,9 @@ export function listAttachments(
 ): Promise<ProductiveResponse<ProductiveAttachment>> {
   const qs = new URLSearchParams();
   if (params.task_id) {
-    qs.append('filter[attachable_id]', params.task_id);
-    qs.append('filter[attachable_type]', 'Task');
+    qs.append('filter[task_id]', params.task_id);
   } else if (params.comment_id) {
-    qs.append('filter[attachable_id]', params.comment_id);
-    qs.append('filter[attachable_type]', 'Comment');
+    qs.append('filter[comment_id]', params.comment_id);
   }
   if (params.limit !== undefined) {
     qs.append('page[size]', params.limit.toString());

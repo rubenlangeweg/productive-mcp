@@ -11,7 +11,7 @@ export function listTaskDependencies(
   taskId: string
 ): Promise<ProductiveResponse<ProductiveDependency>> {
   return request<ProductiveResponse<ProductiveDependency>>(
-    `task_dependencies?filter[task_id]=${encodeURIComponent(taskId)}&include=task,depends_on`
+    `task_dependencies?filter[task_id]=${encodeURIComponent(taskId)}&include=task`
   );
 }
 

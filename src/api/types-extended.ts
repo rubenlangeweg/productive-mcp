@@ -201,8 +201,10 @@ export interface ProductiveExpenseCreate {
   data: {
     type: 'expenses';
     attributes: {
+      name: string;
       date: string;
       amount: number;
+      currency: string;
       note?: string;
       billable?: boolean;
     };
@@ -213,16 +215,10 @@ export interface ProductiveExpenseCreate {
           type: 'people';
         };
       };
-      project?: {
+      service: {
         data: {
           id: string;
-          type: 'projects';
-        };
-      };
-      deal?: {
-        data: {
-          id: string;
-          type: 'deals';
+          type: 'services';
         };
       };
     };
@@ -265,8 +261,8 @@ export interface ProductiveTodo {
   id: string;
   type: 'todos';
   attributes: {
-    title: string;
-    completed: boolean;
+    description: string;
+    closed: boolean;
     position?: number;
     created_at: string;
     updated_at: string;
@@ -290,7 +286,7 @@ export interface ProductiveTodoCreate {
   data: {
     type: 'todos';
     attributes: {
-      title: string;
+      description: string;
     };
     relationships: {
       task: {

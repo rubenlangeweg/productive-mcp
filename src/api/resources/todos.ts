@@ -37,7 +37,7 @@ export function createTodo(
 export function updateTodo(
   request: Requester,
   todoId: string,
-  attrs: { title?: string; completed?: boolean }
+  attrs: { description?: string; closed?: boolean }
 ): Promise<ProductiveSingleResponse<ProductiveTodo>> {
   return request<ProductiveSingleResponse<ProductiveTodo>>(
     `todos/${todoId}`,

@@ -19,14 +19,11 @@ export function listBookings(
   const qs = new URLSearchParams();
   appendFilter(qs, 'person_id', params?.person_id);
   appendFilter(qs, 'project_id', params?.project_id);
-  // Tool-side schema unifies bookings on `after`/`before` to match every other
-  // list endpoint; Productive expects the resource-specific
-  // `started_on_after` / `started_on_before` filter keys, so translate here.
   if (params?.after) {
-    qs.append('filter[started_on_after]', params.after);
+    qs.append('filter[after]', params.after);
   }
   if (params?.before) {
-    qs.append('filter[started_on_before]', params.before);
+    qs.append('filter[before]', params.before);
   }
   appendPagination(qs, params);
   return request<ProductiveResponse<ProductiveBooking>>(
@@ -49,9 +46,8 @@ export async function listBookingsWithIncludedAllPages(
   params?: { after?: string; before?: string; person_id?: string }
 ): Promise<{ bookings: JsonApiEntity[]; included: JsonApiEntity[] }> {
   const qs = new URLSearchParams();
-  // Translate unified `after`/`before` to Productive's resource-specific filter keys.
-  if (params?.after) qs.append('filter[started_on_after]', params.after);
-  if (params?.before) qs.append('filter[started_on_before]', params.before);
+  if (params?.after) qs.append('filter[after]', params.after);
+  if (params?.before) qs.append('filter[before]', params.before);
   appendFilter(qs, 'person_id', params?.person_id);
   qs.set('include', 'person,service.deal.project');
   qs.set('page[size]', '200');
