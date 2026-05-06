@@ -541,7 +541,7 @@ export class ProductiveAPIClient {
   ): Promise<ProductiveSingleResponse<ProductiveFolder>> {
     return folders.updateFolder(this.request, folderId, attrs);
   }
-  archiveFolder(folderId: string): Promise<void> {
+  archiveFolder(folderId: string): Promise<ProductiveSingleResponse<ProductiveFolder>> {
     return folders.archiveFolder(this.request, folderId);
   }
   restoreFolder(

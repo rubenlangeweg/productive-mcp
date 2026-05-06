@@ -67,8 +67,16 @@ export function updateFolder(
 export function archiveFolder(
   request: Requester,
   folderId: string
-): Promise<void> {
-  return request<void>(`folders/${folderId}`, { method: 'DELETE' });
+): Promise<ProductiveSingleResponse<ProductiveFolder>> {
+  return request<ProductiveSingleResponse<ProductiveFolder>>(
+    `folders/${folderId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({
+        data: { type: 'folders', id: folderId, attributes: { archived_at: new Date().toISOString() } },
+      }),
+    }
+  );
 }
 
 export function restoreFolder(
@@ -76,7 +84,12 @@ export function restoreFolder(
   folderId: string
 ): Promise<ProductiveSingleResponse<ProductiveFolder>> {
   return request<ProductiveSingleResponse<ProductiveFolder>>(
-    `folders/${folderId}/restore`,
-    { method: 'POST' }
+    `folders/${folderId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({
+        data: { type: 'folders', id: folderId, attributes: { archived_at: null } },
+      }),
+    }
   );
 }

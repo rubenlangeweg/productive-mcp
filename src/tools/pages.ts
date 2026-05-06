@@ -214,22 +214,13 @@ export async function movePageTool(
 }
 
 export async function copyPageTool(
-  client: ProductiveAPIClient,
-  args: unknown
+  _client: ProductiveAPIClient,
+  _args: unknown
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
-  try {
-    const params = copyPageSchema.parse(args);
-    const response = await client.copyPage(params.template_id, params.project_id);
-    const page = response.data;
-    let text = `Page copied successfully!\n`;
-    text += `Source page ID: ${params.template_id}\n`;
-    text += `New page ID: ${page.id}\n`;
-    text += `Title: ${page.attributes.title}`;
-    if (params.project_id) text += `\nProject ID: ${params.project_id}`;
-    return { content: [{ type: 'text', text }] };
-  } catch (error) {
-    handleError(error);
-  }
+  throw new McpError(
+    ErrorCode.InvalidRequest,
+    'copy_page is not supported: the Productive API does not provide a page copy endpoint. Create a new page manually instead.'
+  );
 }
 
 // ─── Definitions ─────────────────────────────────────────────────────────────

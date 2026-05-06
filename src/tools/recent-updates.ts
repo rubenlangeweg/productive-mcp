@@ -42,6 +42,7 @@ export async function getRecentUpdates(
     for (const activity of response.data) {
       const itemType = activity.attributes.item_type;
       const itemId = activity.attributes.item_id;
+      if (itemType == null) continue;
 
       if (!typeSummary[itemType]) typeSummary[itemType] = { count: 0, items: new Set() };
       typeSummary[itemType]!.count++;
