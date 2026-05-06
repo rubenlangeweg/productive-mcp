@@ -47,12 +47,12 @@
   },
   "description": "Productive.io MCP server — extended for rb2 delivery operations",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.27.1",
-    "dotenv": "^16.6.0",
-    "zod": "^3.25.67"
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "dotenv": "^16.6.1",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@types/node": "^24.0.4",
+    "@types/node": "^24.12.2",
     "@vitest/coverage-v8": "^4.1.5",
     "typescript": "^5.8.3",
     "undici": "^8.2.0",
