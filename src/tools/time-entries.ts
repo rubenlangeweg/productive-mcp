@@ -1,30 +1,33 @@
 import { z } from 'zod';
 import { ProductiveAPIClient } from '../api/client.js';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
-import { ProductiveTimeEntryCreate, ProductiveTimeEntryUpdate } from '../api/types.js';
+import { ProductiveTimeEntryCreate } from '../api/types.js';
+
+export * from './time-entries-services.js';
+export * from './time-entries-mutations.js';
 
 // Helper function to parse time input into minutes
 function parseTimeToMinutes(timeInput: string): number {
   const input = timeInput.toLowerCase().trim();
-  
+
   // Handle hour formats: "2h", "2.5h", "2 hours"
   const hourMatch = input.match(/^(\d*\.?\d+)\s*h(?:ours?)?$/);
   if (hourMatch) {
     return Math.round(parseFloat(hourMatch[1]) * 60);
   }
-  
+
   // Handle minute formats: "120m", "120 minutes"
   const minuteMatch = input.match(/^(\d+)\s*m(?:inutes?)?$/);
   if (minuteMatch) {
     return parseInt(minuteMatch[1], 10);
   }
-  
+
   // Handle decimal hour formats: "2.5", "1.25"
   const decimalMatch = input.match(/^(\d*\.?\d+)$/);
   if (decimalMatch) {
     return Math.round(parseFloat(decimalMatch[1]) * 60);
   }
-  
+
   throw new Error(`Invalid time format: ${timeInput}. Use formats like "2h", "120m", or "2.5"`);
 }
 
@@ -32,32 +35,32 @@ function parseTimeToMinutes(timeInput: string): number {
 function parseDate(dateInput: string): string {
   const input = dateInput.toLowerCase().trim();
   const today = new Date();
-  
+
   if (input === 'today') {
     return today.toISOString().split('T')[0];
   }
-  
+
   if (input === 'yesterday') {
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
     return yesterday.toISOString().split('T')[0];
   }
-  
+
   // Validate YYYY-MM-DD format
   const dateMatch = input.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (dateMatch) {
     const year = parseInt(dateMatch[1], 10);
     const month = parseInt(dateMatch[2], 10);
     const day = parseInt(dateMatch[3], 10);
-    
+
     // Basic validation
     if (month < 1 || month > 12 || day < 1 || day > 31) {
       throw new Error(`Invalid date: ${dateInput}`);
     }
-    
+
     return input;
   }
-  
+
   throw new Error(`Invalid date format: ${dateInput}. Use "today", "yesterday", or YYYY-MM-DD format`);
 }
 
@@ -83,16 +86,6 @@ const createTimeEntrySchema = z.object({
   confirm: z.boolean().optional().default(false),
 });
 
-const listServicesSchema = z.object({
-  company_id: z.string().optional(),
-  limit: z.number().min(1).max(200).default(30).optional(),
-});
-
-const getProjectServicesSchema = z.object({
-  project_id: z.string().min(1, 'Project ID is required'),
-  limit: z.number().min(1).max(200).default(30).optional(),
-});
-
 export async function listTimeEntriesTool(
   client: ProductiveAPIClient,
   args: unknown,
@@ -100,7 +93,7 @@ export async function listTimeEntriesTool(
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
   try {
     const params = listTimeEntriesSchema.parse(args);
-    
+
     // Handle "me" reference for person_id
     let personId = params.person_id;
     if (personId === 'me') {
@@ -112,7 +105,7 @@ export async function listTimeEntriesTool(
       }
       personId = config.PRODUCTIVE_USER_ID;
     }
-    
+
     const response = await client.listTimeEntries({
       date: params.date,
       after: params.after,
@@ -123,7 +116,7 @@ export async function listTimeEntriesTool(
       service_id: params.service_id,
       limit: params.limit,
     });
-    
+
     if (!response.data || response.data.length === 0) {
       return {
         content: [{
@@ -132,29 +125,29 @@ export async function listTimeEntriesTool(
         }],
       };
     }
-    
+
     const entriesText = response.data.map(entry => {
       const personId = entry.relationships?.person?.data?.id;
       const serviceId = entry.relationships?.service?.data?.id;
       const taskId = entry.relationships?.task?.data?.id;
       const projectId = entry.relationships?.project?.data?.id;
-      
+
       const hours = Math.floor(entry.attributes.time / 60);
       const minutes = entry.attributes.time % 60;
-      const timeDisplay = hours > 0 
+      const timeDisplay = hours > 0
         ? (minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`)
         : `${minutes}m`;
-      
+
       let billableDisplay = '';
       if (entry.attributes.billable_time !== undefined && entry.attributes.billable_time !== entry.attributes.time) {
         const billableHours = Math.floor(entry.attributes.billable_time / 60);
         const billableMinutes = entry.attributes.billable_time % 60;
-        const billableTimeDisplay = billableHours > 0 
+        const billableTimeDisplay = billableHours > 0
           ? (billableMinutes > 0 ? `${billableHours}h ${billableMinutes}m` : `${billableHours}h`)
           : `${billableMinutes}m`;
         billableDisplay = ` (Billable: ${billableTimeDisplay})`;
       }
-      
+
       return `• Time Entry (ID: ${entry.id})
   Date: ${entry.attributes.date}
   Time: ${timeDisplay}${billableDisplay}
@@ -164,16 +157,16 @@ export async function listTimeEntriesTool(
   Task ID: ${taskId || 'None'}
   Project ID: ${projectId || 'None'}`;
     }).join('\n\n');
-    
+
     const totalMinutes = response.data.reduce((sum, entry) => sum + entry.attributes.time, 0);
     const totalHours = Math.floor(totalMinutes / 60);
     const totalMins = totalMinutes % 60;
-    const totalDisplay = totalHours > 0 
+    const totalDisplay = totalHours > 0
       ? (totalMins > 0 ? `${totalHours}h ${totalMins}m` : `${totalHours}h`)
       : `${totalMins}m`;
-    
+
     const summary = `Found ${response.data.length} time entr${response.data.length !== 1 ? 'ies' : 'y'}${response.meta?.total_count ? ` (showing ${response.data.length} of ${response.meta.total_count})` : ''}:\n\nTotal Time: ${totalDisplay}\n\n${entriesText}`;
-    
+
     return {
       content: [{
         type: 'text',
@@ -187,7 +180,7 @@ export async function listTimeEntriesTool(
         `Invalid parameters: ${error.errors.map(e => e.message).join(', ')}`
       );
     }
-    
+
     throw new McpError(
       ErrorCode.InternalError,
       error instanceof Error ? error.message : 'Unknown error occurred'
@@ -202,7 +195,7 @@ export async function createTimeEntryTool(
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
   try {
     const params = createTimeEntrySchema.parse(args);
-    
+
     // Handle "me" reference for person_id
     let personId = params.person_id;
     if (personId === 'me') {
@@ -214,7 +207,7 @@ export async function createTimeEntryTool(
       }
       personId = config.PRODUCTIVE_USER_ID;
     }
-    
+
     // Parse and validate date
     let parsedDate: string;
     try {
@@ -225,7 +218,7 @@ export async function createTimeEntryTool(
         error instanceof Error ? error.message : 'Invalid date format'
       );
     }
-    
+
     // Parse and validate time
     let timeInMinutes: number;
     try {
@@ -236,7 +229,7 @@ export async function createTimeEntryTool(
         error instanceof Error ? error.message : 'Invalid time format'
       );
     }
-    
+
     // Parse billable time if provided
     let billableTimeInMinutes: number | undefined;
     if (params.billable_time) {
@@ -249,25 +242,25 @@ export async function createTimeEntryTool(
         );
       }
     }
-    
+
     // If not confirmed, show confirmation details
     if (!params.confirm) {
       const hours = Math.floor(timeInMinutes / 60);
       const minutes = timeInMinutes % 60;
-      const timeDisplay = hours > 0 
+      const timeDisplay = hours > 0
         ? (minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`)
         : `${minutes}m`;
-      
+
       let billableDisplay = '';
       if (billableTimeInMinutes !== undefined) {
         const billableHours = Math.floor(billableTimeInMinutes / 60);
         const billableMins = billableTimeInMinutes % 60;
-        const billableTimeDisplay = billableHours > 0 
+        const billableTimeDisplay = billableHours > 0
           ? (billableMins > 0 ? `${billableHours}h ${billableMins}m` : `${billableHours}h`)
           : `${billableMins}m`;
         billableDisplay = `\nBillable Time: ${billableTimeDisplay}`;
       }
-      
+
       return {
         content: [{
           type: 'text',
@@ -284,7 +277,7 @@ To create this time entry, call this tool again with the same parameters and add
         }],
       };
     }
-    
+
     const timeEntryData: ProductiveTimeEntryCreate = {
       data: {
         type: 'time_entries',
@@ -310,7 +303,7 @@ To create this time entry, call this tool again with the same parameters and add
         },
       },
     };
-    
+
     // Add task relationship if provided
     if (params.task_id) {
       timeEntryData.data.relationships.task = {
@@ -320,49 +313,49 @@ To create this time entry, call this tool again with the same parameters and add
         },
       };
     }
-    
+
     const response = await client.createTimeEntry(timeEntryData);
-    
+
     const hours = Math.floor(response.data.attributes.time / 60);
     const minutes = response.data.attributes.time % 60;
-    const timeDisplay = hours > 0 
+    const timeDisplay = hours > 0
       ? (minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`)
       : `${minutes}m`;
-    
+
     let billableDisplay = '';
     if (response.data.attributes.billable_time !== undefined && response.data.attributes.billable_time !== response.data.attributes.time) {
       const billableHours = Math.floor(response.data.attributes.billable_time / 60);
       const billableMins = response.data.attributes.billable_time % 60;
-      const billableTimeDisplay = billableHours > 0 
+      const billableTimeDisplay = billableHours > 0
         ? (billableMins > 0 ? `${billableHours}h ${billableMins}m` : `${billableHours}h`)
         : `${billableMins}m`;
       billableDisplay = `\nBillable Time: ${billableTimeDisplay}`;
     }
-    
+
     let text = `Time entry created successfully!
 Date: ${response.data.attributes.date}
 Time: ${timeDisplay}${billableDisplay}
 ID: ${response.data.id}`;
-    
+
     if (response.data.attributes.note) {
       text += `\nNote: ${response.data.attributes.note}`;
     }
-    
+
     text += `\nPerson ID: ${personId}`;
     if (params.person_id === 'me' && config?.PRODUCTIVE_USER_ID) {
       text += ` (me)`;
     }
-    
+
     text += `\nService ID: ${params.service_id}`;
-    
+
     if (params.task_id) {
       text += `\nTask ID: ${params.task_id}`;
     }
-    
+
     if (response.data.attributes.created_at) {
       text += `\nCreated at: ${response.data.attributes.created_at}`;
     }
-    
+
     return {
       content: [{
         type: 'text',
@@ -376,118 +369,11 @@ ID: ${response.data.id}`;
         `Invalid parameters: ${error.errors.map(e => e.message).join(', ')}`
       );
     }
-    
+
     throw new McpError(
       ErrorCode.InternalError,
       error instanceof Error ? error.message : 'Unknown error occurred'
     );
-  }
-}
-
-export async function listServicesTool(
-  client: ProductiveAPIClient,
-  args: unknown
-): Promise<{ content: Array<{ type: string; text: string }> }> {
-  try {
-    const params = listServicesSchema.parse(args);
-    
-    const response = await client.listServices({
-      company_id: params.company_id,
-      limit: params.limit,
-    });
-    
-    if (!response.data || response.data.length === 0) {
-      return {
-        content: [{
-          type: 'text',
-          text: 'No services found matching the criteria.',
-        }],
-      };
-    }
-    
-    const servicesText = response.data.map(service => {
-      const companyId = service.relationships?.company?.data?.id;
-      return `• ${service.attributes.name} (ID: ${service.id})
-  ${companyId ? `Company ID: ${companyId}` : ''}
-  ${service.attributes.description ? `Description: ${service.attributes.description}` : 'No description'}`;
-    }).join('\n\n');
-    
-    const summary = `Found ${response.data.length} service${response.data.length !== 1 ? 's' : ''}${response.meta?.total_count ? ` (showing ${response.data.length} of ${response.meta.total_count})` : ''}:\n\n${servicesText}`;
-    
-    return {
-      content: [{
-        type: 'text',
-        text: summary,
-      }],
-    };
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      throw new McpError(
-        ErrorCode.InvalidParams,
-        `Invalid parameters: ${error.errors.map(e => e.message).join(', ')}`
-      );
-    }
-    
-    throw new McpError(
-      ErrorCode.InternalError,
-      error instanceof Error ? error.message : 'Unknown error occurred'
-    );
-  }
-}
-
-export async function getProjectServicesTool(
-  client: ProductiveAPIClient,
-  args: unknown
-): Promise<{ content: Array<{ type: string; text: string }> }> {
-  try {
-    const params = getProjectServicesSchema.parse(args);
-
-    // Get deals for the project, then services for each deal
-    const dealsResponse = await client.listProjectDeals({ project_id: params.project_id, limit: 50 });
-
-    if (!dealsResponse.data || dealsResponse.data.length === 0) {
-      return {
-        content: [{
-          type: 'text',
-          text: `No deals/budgets found for project ${params.project_id}. Use list_project_deals first to get deal IDs, then list_deal_services for each deal.`,
-        }],
-      };
-    }
-
-    // Fetch services for all deals in parallel
-    const allServices: string[] = [];
-    for (const deal of dealsResponse.data) {
-      const servicesResponse = await client.listDealServices({ deal_id: deal.id, limit: params.limit });
-      if (servicesResponse.data && servicesResponse.data.length > 0) {
-        const dealType = deal.attributes.budget_type === 1 ? 'Deal' : 'Budget';
-        allServices.push(`--- ${dealType}: ${deal.attributes.name} (Deal ID: ${deal.id}) ---`);
-        allServices.push(...servicesResponse.data.map(service =>
-          `• ${service.attributes.name} (Service ID: ${service.id})
-  ${service.attributes.description ? `Description: ${service.attributes.description}` : ''}`
-        ));
-      }
-    }
-
-    if (allServices.length === 0) {
-      return {
-        content: [{
-          type: 'text',
-          text: `No services found for project ${params.project_id}.`,
-        }],
-      };
-    }
-
-    return {
-      content: [{
-        type: 'text',
-        text: `Services for project ${params.project_id}:\n\n${allServices.join('\n')}`,
-      }],
-    };
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      throw new McpError(ErrorCode.InvalidParams, `Invalid parameters: ${error.errors.map(e => e.message).join(', ')}`);
-    }
-    throw new McpError(ErrorCode.InternalError, error instanceof Error ? error.message : 'Unknown error occurred');
   }
 }
 
@@ -584,373 +470,3 @@ export const createTimeEntryDefinition = {
   },
 };
 
-export const listServicesDefinition = {
-  name: 'list_services',
-  description: 'List all services in the organization. NOTE: For timesheet entries, use the proper workflow instead: list_projects → list_project_deals → list_deal_services → create_time_entry. This tool shows all services but does not indicate which project/budget they belong to.',
-  annotations: { readOnlyHint: true },
-  inputSchema: {
-    type: 'object',
-    properties: {
-      company_id: {
-        type: 'string',
-        description: 'Filter services by company ID',
-      },
-      limit: {
-        type: 'number',
-        description: 'Number of services to return (1-200)',
-        minimum: 1,
-        maximum: 200,
-        default: 30,
-      },
-    },
-    required: [],
-  },
-};
-
-// Zod schema for list project deals/budgets
-const listProjectDealsSchema = z.object({
-  project_id: z.string().min(1, 'Project ID is required'),
-  budget_type: z.number().int().min(1).max(2).optional().describe('Budget type: 1 = deal, 2 = budget'),
-  limit: z.number().min(1).max(200).default(30).optional(),
-});
-
-// Tool function for list project deals/budgets
-export async function listProjectDealsTool(
-  client: ProductiveAPIClient,
-  args: unknown
-): Promise<{ content: Array<{ type: string; text: string }> }> {
-  try {
-    const params = listProjectDealsSchema.parse(args);
-    
-    const response = await client.listProjectDeals({
-      project_id: params.project_id,
-      budget_type: params.budget_type,
-      limit: params.limit,
-    });
-    
-    if (!response.data || response.data.length === 0) {
-      return {
-        content: [{
-          type: 'text',
-          text: 'No deals/budgets found for this project.',
-        }],
-      };
-    }
-    
-    const dealsText = response.data.map(deal => {
-      const budgetType = deal.attributes.budget_type === 1 ? 'Deal' : 
-                        deal.attributes.budget_type === 2 ? 'Budget' : 'Unknown';
-      const value = deal.attributes.value ? ` (Value: ${deal.attributes.value})` : '';
-      
-      return `• ${budgetType} (ID: ${deal.id})
-  Name: ${deal.attributes.name}${value}`;
-    }).join('\n\n');
-    
-    const typeFilter = params.budget_type === 1 ? ' deals' : 
-                      params.budget_type === 2 ? ' budgets' : ' deals/budgets';
-    
-    const summary = `Found ${response.data.length}${typeFilter} for project ${params.project_id}:\n\n${dealsText}`;
-    
-    return {
-      content: [{
-        type: 'text',
-        text: summary,
-      }],
-    };
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      throw new McpError(
-        ErrorCode.InvalidParams,
-        `Invalid parameters: ${error.errors.map(e => e.message).join(', ')}`
-      );
-    }
-    
-    throw new McpError(
-      ErrorCode.InternalError,
-      error instanceof Error ? error.message : 'Unknown error occurred'
-    );
-  }
-}
-
-// Zod schema for list deal services
-const listDealServicesSchema = z.object({
-  deal_id: z.string().min(1, 'Deal/Budget ID is required'),
-  limit: z.number().min(1).max(200).default(30).optional(),
-});
-
-// Tool function for list deal services
-export async function listDealServicesTool(
-  client: ProductiveAPIClient,
-  args: unknown
-): Promise<{ content: Array<{ type: string; text: string }> }> {
-  try {
-    const params = listDealServicesSchema.parse(args);
-    
-    const response = await client.listDealServices({
-      deal_id: params.deal_id,
-      limit: params.limit,
-    });
-    
-    if (!response.data || response.data.length === 0) {
-      return {
-        content: [{
-          type: 'text',
-          text: 'No services found for this deal/budget.',
-        }],
-      };
-    }
-    
-    const servicesText = response.data.map(service => {
-      return `• Service (ID: ${service.id})
-  Name: ${service.attributes.name || 'Unnamed Service'}
-  ${service.attributes.description ? `Description: ${service.attributes.description}` : 'No description'}`;
-    }).join('\n\n');
-    
-    const summary = `Found ${response.data.length} service${response.data.length !== 1 ? 's' : ''} for deal/budget ${params.deal_id}:\n\n${servicesText}`;
-    
-    return {
-      content: [{
-        type: 'text',
-        text: summary,
-      }],
-    };
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      throw new McpError(
-        ErrorCode.InvalidParams,
-        `Invalid parameters: ${error.errors.map(e => e.message).join(', ')}`
-      );
-    }
-    
-    throw new McpError(
-      ErrorCode.InternalError,
-      error instanceof Error ? error.message : 'Unknown error occurred'
-    );
-  }
-}
-
-export const listProjectDealsDefinition = {
-  name: 'list_project_deals',
-  description: 'STEP 2 of timesheet workflow: Get deals/budgets for a specific project. COMPLETE WORKFLOW: 1) list_projects → 2) list_project_deals → 3) list_deal_services → 4) list_project_tasks (recommended) → 5) create_time_entry. This follows: Project → Deal/Budget → Service → Task → Time Entry.',
-  annotations: { readOnlyHint: true },
-  inputSchema: {
-    type: 'object',
-    properties: {
-      project_id: {
-        type: 'string',
-        description: 'The ID of the project (required)',
-      },
-      budget_type: {
-        type: 'number',
-        description: 'Filter by budget type: 1 = deal, 2 = budget',
-        minimum: 1,
-        maximum: 2,
-      },
-      limit: {
-        type: 'number',
-        description: 'Number of deals/budgets to return (1-200)',
-        minimum: 1,
-        maximum: 200,
-        default: 30,
-      },
-    },
-    required: ['project_id'],
-  },
-};
-
-export const listDealServicesDefinition = {
-  name: 'list_deal_services',
-  description: 'STEP 3 of timesheet workflow: Get services for a specific deal/budget. COMPLETE WORKFLOW: 1) list_projects → 2) list_project_deals → 3) list_deal_services → 4) list_project_tasks (recommended) → 5) create_time_entry. After this, optionally use list_project_tasks to find specific tasks to link your time entry to.',
-  annotations: { readOnlyHint: true },
-  inputSchema: {
-    type: 'object',
-    properties: {
-      deal_id: {
-        type: 'string',
-        description: 'The ID of the deal/budget (required)',
-      },
-      limit: {
-        type: 'number',
-        description: 'Number of services to return (1-200)',
-        minimum: 1,
-        maximum: 200,
-        default: 30,
-      },
-    },
-    required: ['deal_id'],
-  },
-};
-
-export const getProjectServicesDefinition = {
-  name: 'get_project_services',
-  description: 'Get all services for a project by traversing its deals/budgets. Returns services grouped by deal/budget. Prefer using list_project_deals + list_deal_services for more control.',
-  annotations: { readOnlyHint: true },
-  inputSchema: {
-    type: 'object',
-    properties: {
-      project_id: {
-        type: 'string',
-        description: 'The ID of the project (required)',
-      },
-      limit: {
-        type: 'number',
-        description: 'Number of services per deal to return (1-200)',
-        minimum: 1,
-        maximum: 200,
-        default: 30,
-      },
-    },
-    required: ['project_id'],
-  },
-};
-
-// ─── Update Time Entry ──────────────────────────────────────────────────────
-
-const updateTimeEntrySchema = z.object({
-  time_entry_id: z.string().min(1, 'Time entry ID is required'),
-  date: z.string().optional(),
-  time: z.string().optional(),
-  note: z.string().optional(),
-  billable_time: z.string().optional(),
-  service_id: z.string().optional(),
-  task_id: z.string().nullable().optional(),
-});
-
-export async function updateTimeEntryTool(
-  client: ProductiveAPIClient,
-  args: unknown
-): Promise<{ content: Array<{ type: string; text: string }> }> {
-  try {
-    const params = updateTimeEntrySchema.parse(args);
-
-    const attributes: ProductiveTimeEntryUpdate['data']['attributes'] = {};
-    if (params.date) attributes.date = params.date;
-    if (params.time) {
-      // Reuse parseTimeToMinutes helper inline
-      const input = params.time.toLowerCase().trim();
-      const hourMatch = input.match(/^(\d*\.?\d+)\s*h(?:ours?)?$/);
-      const minuteMatch = input.match(/^(\d+)\s*m(?:inutes?)?$/);
-      const decimalMatch = input.match(/^(\d*\.?\d+)$/);
-      if (hourMatch) {
-        attributes.time = Math.round(parseFloat(hourMatch[1]) * 60);
-      } else if (minuteMatch) {
-        attributes.time = parseInt(minuteMatch[1], 10);
-      } else if (decimalMatch) {
-        attributes.time = Math.round(parseFloat(decimalMatch[1]) * 60);
-      } else {
-        throw new McpError(ErrorCode.InvalidParams, `Invalid time format: ${params.time}. Use formats like "2h", "120m", or "2.5"`);
-      }
-    }
-    if (params.billable_time) {
-      const input = params.billable_time.toLowerCase().trim();
-      const hourMatch = input.match(/^(\d*\.?\d+)\s*h(?:ours?)?$/);
-      const minuteMatch = input.match(/^(\d+)\s*m(?:inutes?)?$/);
-      const decimalMatch = input.match(/^(\d*\.?\d+)$/);
-      if (hourMatch) {
-        attributes.billable_time = Math.round(parseFloat(hourMatch[1]) * 60);
-      } else if (minuteMatch) {
-        attributes.billable_time = parseInt(minuteMatch[1], 10);
-      } else if (decimalMatch) {
-        attributes.billable_time = Math.round(parseFloat(decimalMatch[1]) * 60);
-      }
-    }
-    if (params.note !== undefined) attributes.note = params.note;
-
-    const updateData: ProductiveTimeEntryUpdate = {
-      data: {
-        type: 'time_entries',
-        id: params.time_entry_id,
-        attributes: Object.keys(attributes).length > 0 ? attributes : undefined,
-      },
-    };
-
-    if (params.service_id) {
-      updateData.data.relationships = {
-        ...updateData.data.relationships,
-        service: { data: { id: params.service_id, type: 'services' } },
-      };
-    }
-    if (params.task_id !== undefined) {
-      updateData.data.relationships = {
-        ...updateData.data.relationships,
-        task: { data: params.task_id ? { id: params.task_id, type: 'tasks' } : null },
-      };
-    }
-
-    const response = await client.updateTimeEntry(params.time_entry_id, updateData);
-    const entry = response.data;
-    const hours = Math.floor(entry.attributes.time / 60);
-    const minutes = entry.attributes.time % 60;
-    const timeDisplay = hours > 0 ? (minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`) : `${minutes}m`;
-
-    let text = `Time entry updated successfully!\n`;
-    text += `ID: ${entry.id}\n`;
-    text += `Date: ${entry.attributes.date}\n`;
-    text += `Time: ${timeDisplay}\n`;
-    if (entry.attributes.note) text += `Note: ${entry.attributes.note}\n`;
-    if (entry.attributes.updated_at) text += `Updated at: ${entry.attributes.updated_at}\n`;
-
-    return { content: [{ type: 'text', text }] };
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      throw new McpError(ErrorCode.InvalidParams, `Invalid parameters: ${error.errors.map(e => e.message).join(', ')}`);
-    }
-    throw new McpError(ErrorCode.InternalError, error instanceof Error ? error.message : 'Unknown error occurred');
-  }
-}
-
-export const updateTimeEntryDefinition = {
-  name: 'update_time_entry',
-  description: 'Update an existing time entry in Productive.io. Only provide the fields you want to change.',
-  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
-  inputSchema: {
-    type: 'object',
-    properties: {
-      time_entry_id: { type: 'string', description: 'ID of the time entry to update (required)' },
-      date: { type: 'string', description: 'New date (YYYY-MM-DD)' },
-      time: { type: 'string', description: 'New duration (e.g. "2h", "90m", "1.5")' },
-      billable_time: { type: 'string', description: 'New billable duration (same format as time)' },
-      note: { type: 'string', description: 'New work description (use empty string to clear)' },
-      service_id: { type: 'string', description: 'New service ID' },
-      task_id: { type: ['string', 'null'], description: 'New task ID, or null to unlink from task' },
-    },
-    required: ['time_entry_id'],
-  },
-};
-
-// ─── Delete Time Entry ──────────────────────────────────────────────────────
-
-const deleteTimeEntrySchema = z.object({
-  time_entry_id: z.string().min(1, 'Time entry ID is required'),
-});
-
-export async function deleteTimeEntryTool(
-  client: ProductiveAPIClient,
-  args: unknown
-): Promise<{ content: Array<{ type: string; text: string }> }> {
-  try {
-    const params = deleteTimeEntrySchema.parse(args);
-    await client.deleteTimeEntry(params.time_entry_id);
-    return {
-      content: [{ type: 'text', text: `Time entry ${params.time_entry_id} deleted successfully.` }],
-    };
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      throw new McpError(ErrorCode.InvalidParams, `Invalid parameters: ${error.errors.map(e => e.message).join(', ')}`);
-    }
-    throw new McpError(ErrorCode.InternalError, error instanceof Error ? error.message : 'Unknown error occurred');
-  }
-}
-
-export const deleteTimeEntryDefinition = {
-  name: 'delete_time_entry',
-  description: 'Delete a time entry from Productive.io. This action is irreversible.',
-  annotations: { readOnlyHint: false, destructiveHint: true },
-  inputSchema: {
-    type: 'object',
-    properties: {
-      time_entry_id: { type: 'string', description: 'ID of the time entry to delete (required)' },
-    },
-    required: ['time_entry_id'],
-  },
-};
