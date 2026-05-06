@@ -1,83 +1,131 @@
+/**
+ * `ProductiveAPIClient` — backwards-compatible facade over the per-resource
+ * modules in `src/api/resources/*`.
+ *
+ * Every existing tool calls `client.<method>(...)`. Rather than touch every
+ * tool file in M1, the methods here are thin delegates that pass the
+ * client's `makeRequest` Requester into the matching per-resource function.
+ *
+ * The actual request logic (header injection, error mapping, retries) lives
+ * in `makeRequest` for now and will move to `src/api/core.ts` in M2.
+ */
 import { Config } from '../config/index.js';
 import {
-  ProductiveCompany,
-  ProductiveProject,
-  ProductiveTask,
+  ProductiveAttachment,
   ProductiveBoard,
-  ProductiveTaskList,
-  ProductivePerson,
-  ProductiveActivity,
-  ProductiveComment,
-  ProductiveWorkflowStatus,
-  ProductiveService,
-  ProductiveTimeEntry,
-  ProductiveTimeEntryUpdate,
-  ProductiveDeal,
-  ProductiveInvoice,
-  ProductiveExpense,
-  ProductiveExpenseCreate,
-  ProductiveMembership,
+  ProductiveBoardCreate,
   ProductiveBooking,
-  ProductiveTodo,
-  ProductiveTodoCreate,
+  ProductiveCompany,
   ProductiveDependency,
   ProductiveDependencyCreate,
+  ProductiveError,
+  ProductiveExpense,
+  ProductiveExpenseCreate,
+  ProductiveInvoice,
+  ProductiveMembership,
   ProductivePage,
-  ProductiveAttachment,
+  ProductivePerson,
+  ProductiveProject,
   ProductiveResponse,
+  ProductiveService,
   ProductiveSingleResponse,
+  ProductiveTask,
   ProductiveTaskCreate,
-  ProductiveTaskUpdate,
-  ProductiveBoardCreate,
+  ProductiveTaskList,
   ProductiveTaskListCreate,
-  ProductiveCommentCreate,
+  ProductiveTaskUpdate,
+  ProductiveTimeEntry,
   ProductiveTimeEntryCreate,
-  ProductiveError
+  ProductiveTimeEntryUpdate,
+  ProductiveTodo,
+  ProductiveTodoCreate,
+  ProductiveDeal,
+  ProductiveActivity,
+  ProductiveComment,
+  ProductiveCommentCreate,
+  ProductiveWorkflowStatus,
 } from './types.js';
+
+import * as activities from './resources/activities.js';
+import * as attachments from './resources/attachments.js';
+import * as boards from './resources/boards.js';
+import * as bookings from './resources/bookings.js';
+import * as comments from './resources/comments.js';
+import * as companies from './resources/companies.js';
+import * as deals from './resources/deals.js';
+import * as dependencies from './resources/dependencies.js';
+import * as expenses from './resources/expenses.js';
+import * as invoices from './resources/invoices.js';
+import * as memberships from './resources/memberships.js';
+import * as pages from './resources/pages.js';
+import * as people from './resources/people.js';
+import * as projects from './resources/projects.js';
+import * as services from './resources/services.js';
+import * as taskActions from './resources/task-actions.js';
+import * as taskLists from './resources/task-lists.js';
+import * as tasks from './resources/tasks.js';
+import * as timeEntries from './resources/time-entries.js';
+import * as todos from './resources/todos.js';
+import * as workflowStatuses from './resources/workflow-statuses.js';
+import { getAllPages as legacyGetAllPages } from './resources/_pagination-legacy.js';
+import type { Requester } from './resources/_requester.js';
 
 export class ProductiveAPIClient {
   private config: Config;
-  
+  /** Bound requester passed into each per-resource function. */
+  private readonly request: Requester;
+
   constructor(config: Config) {
     this.config = config;
+    this.request = this.makeRequest.bind(this) as Requester;
   }
-  
-  private getHeaders(): HeadersInit {
+
+  private getHeaders(): Record<string, string> {
     return {
       'X-Auth-Token': this.config.PRODUCTIVE_API_TOKEN,
       'X-Organization-Id': this.config.PRODUCTIVE_ORG_ID,
       'Content-Type': 'application/vnd.api+json',
     };
   }
-  
-  private async makeRequest<T>(path: string, options?: RequestInit): Promise<T> {
-    const url = `${this.config.PRODUCTIVE_API_BASE_URL}${path}`;
 
+  private async makeRequest<T>(
+    path: string,
+    options?: RequestInit
+  ): Promise<T> {
+    const url = `${this.config.PRODUCTIVE_API_BASE_URL}${path}`;
     const response = await fetch(url, {
       ...options,
       headers: {
         ...this.getHeaders(),
-        ...options?.headers,
+        ...(options?.headers as Record<string, string> | undefined),
       },
     });
 
     if (!response.ok) {
+      // Special-case 204 No Content for DELETE operations
+      if (response.status === 204) {
+        return undefined as T;
+      }
       throw new Error(await this.buildErrorMessage(response));
     }
 
-    return await response.json() as T;
+    if (response.status === 204) {
+      return undefined as T;
+    }
+    return (await response.json()) as T;
   }
 
   private async buildErrorMessage(response: Response): Promise<string> {
-    // Try to extract the API's own error detail from the JSON body
     let apiDetail = '';
     try {
-      const errorData = await response.json() as ProductiveError;
-      apiDetail = errorData.errors?.[0]?.detail ?? errorData.errors?.[0]?.title ?? '';
+      const errorData = (await response.json()) as ProductiveError;
+      apiDetail =
+        errorData.errors?.[0]?.detail ??
+        errorData.errors?.[0]?.title ??
+        '';
     } catch {
-      // Response body was empty or not JSON — fall through to status-based message
+      // body was not JSON
     }
-
     switch (response.status) {
       case 401:
         return `Authentication failed${apiDetail ? `: ${apiDetail}` : '. Check your PRODUCTIVE_API_TOKEN.'}`;
@@ -91,743 +139,51 @@ export class ProductiveAPIClient {
         return apiDetail || `API request failed with status ${response.status}`;
     }
   }
-  
-  async listCompanies(params?: {
-    status?: 'active' | 'archived';
-    limit?: number;
-    page?: number;
-  }): Promise<ProductiveResponse<ProductiveCompany>> {
-    const queryParams = new URLSearchParams();
-    
-    if (params?.status) {
-      queryParams.append('filter[status]', params.status);
-    }
-    
-    if (params?.limit) {
-      queryParams.append('page[size]', params.limit.toString());
-    }
-    
-    if (params?.page) {
-      queryParams.append('page[number]', params.page.toString());
-    }
-    
-    const queryString = queryParams.toString();
-    const path = `companies${queryString ? `?${queryString}` : ''}`;
-    
-    return this.makeRequest<ProductiveResponse<ProductiveCompany>>(path);
+
+  // ─── Companies ─────────────────────────────────────────────────────────────
+  listCompanies(
+    params?: companies.ListCompaniesParams
+  ): Promise<ProductiveResponse<ProductiveCompany>> {
+    return companies.listCompanies(this.request, params);
   }
-  
-  async listProjects(params?: {
-    status?: 'active' | 'archived';
-    company_id?: string;
-    limit?: number;
-    page?: number;
-  }): Promise<ProductiveResponse<ProductiveProject>> {
-    const queryParams = new URLSearchParams();
-    
-    if (params?.status) {
-      // Convert status string to integer: active = 1, archived = 2
-      const statusValue = params.status === 'active' ? '1' : '2';
-      queryParams.append('filter[status]', statusValue);
-    }
-    
-    if (params?.company_id) {
-      queryParams.append('filter[company_id]', params.company_id);
-    }
-    
-    if (params?.limit) {
-      queryParams.append('page[size]', params.limit.toString());
-    }
-    
-    if (params?.page) {
-      queryParams.append('page[number]', params.page.toString());
-    }
-    
-    const queryString = queryParams.toString();
-    const path = `projects${queryString ? `?${queryString}` : ''}`;
-    
-    return this.makeRequest<ProductiveResponse<ProductiveProject>>(path);
+
+  // ─── Projects ──────────────────────────────────────────────────────────────
+  listProjects(
+    params?: projects.ListProjectsParams
+  ): Promise<ProductiveResponse<ProductiveProject>> {
+    return projects.listProjects(this.request, params);
   }
-  
-  async listTasks(params?: {
-    project_id?: string;
-    assignee_id?: string;
-    status?: 'open' | 'closed';
-    limit?: number;
-    page?: number;
-  }): Promise<ProductiveResponse<ProductiveTask>> {
-    const queryParams = new URLSearchParams();
-    
-    if (params?.project_id) {
-      queryParams.append('filter[project_id]', params.project_id);
-    }
-    
-    if (params?.assignee_id) {
-      queryParams.append('filter[assignee_id]', params.assignee_id);
-    }
-    
-    if (params?.status) {
-      // Convert status names to integers: open = 1, closed = 2
-      const statusValue = params.status === 'open' ? '1' : '2';
-      queryParams.append('filter[status]', statusValue);
-    }
-    
-    if (params?.limit) {
-      queryParams.append('page[size]', params.limit.toString());
-    }
-    
-    if (params?.page) {
-      queryParams.append('page[number]', params.page.toString());
-    }
-    
-    const queryString = queryParams.toString();
-    const path = `tasks${queryString ? `?${queryString}` : ''}`;
-    
-    return this.makeRequest<ProductiveResponse<ProductiveTask>>(path);
+
+  // ─── Tasks ─────────────────────────────────────────────────────────────────
+  listTasks(
+    params?: tasks.ListTasksParams
+  ): Promise<ProductiveResponse<ProductiveTask>> {
+    return tasks.listTasks(this.request, params);
   }
-  
-  async listBoards(params?: {
-    project_id?: string;
-    limit?: number;
-    page?: number;
-  }): Promise<ProductiveResponse<ProductiveBoard>> {
-    const queryParams = new URLSearchParams();
-    
-    if (params?.project_id) {
-      queryParams.append('filter[project_id]', params.project_id);
-    }
-    
-    if (params?.limit) {
-      queryParams.append('page[size]', params.limit.toString());
-    }
-    
-    if (params?.page) {
-      queryParams.append('page[number]', params.page.toString());
-    }
-    
-    const queryString = queryParams.toString();
-    const path = `boards${queryString ? `?${queryString}` : ''}`;
-    
-    return this.makeRequest<ProductiveResponse<ProductiveBoard>>(path);
-  }
-  
-  async createBoard(boardData: ProductiveBoardCreate): Promise<ProductiveSingleResponse<ProductiveBoard>> {
-    return this.makeRequest<ProductiveSingleResponse<ProductiveBoard>>('boards', {
-      method: 'POST',
-      body: JSON.stringify(boardData),
-    });
-  }
-  
-  async createTask(taskData: ProductiveTaskCreate): Promise<ProductiveSingleResponse<ProductiveTask>> {
-    return this.makeRequest<ProductiveSingleResponse<ProductiveTask>>('tasks', {
-      method: 'POST',
-      body: JSON.stringify(taskData),
-    });
-  }
-  
-  async listTaskLists(params?: {
-    board_id?: string;
-    limit?: number;
-    page?: number;
-  }): Promise<ProductiveResponse<ProductiveTaskList>> {
-    const queryParams = new URLSearchParams();
-    
-    if (params?.board_id) {
-      queryParams.append('filter[board_id]', params.board_id);
-    }
-    
-    if (params?.limit) {
-      queryParams.append('page[size]', params.limit.toString());
-    }
-    
-    if (params?.page) {
-      queryParams.append('page[number]', params.page.toString());
-    }
-    
-    const queryString = queryParams.toString();
-    const path = `task_lists${queryString ? `?${queryString}` : ''}`;
-    
-    return this.makeRequest<ProductiveResponse<ProductiveTaskList>>(path);
-  }
-  
-  async createTaskList(taskListData: ProductiveTaskListCreate): Promise<ProductiveSingleResponse<ProductiveTaskList>> {
-    return this.makeRequest<ProductiveSingleResponse<ProductiveTaskList>>('task_lists', {
-      method: 'POST',
-      body: JSON.stringify(taskListData),
-    });
-  }
-  
-  async listPeople(params?: {
-    company_id?: string;
-    project_id?: string;
-    is_active?: boolean;
-    email?: string;
-    limit?: number;
-    page?: number;
-  }): Promise<ProductiveResponse<ProductivePerson>> {
-    const queryParams = new URLSearchParams();
-    
-    if (params?.company_id) {
-      queryParams.append('filter[company_id]', params.company_id);
-    }
-    
-    if (params?.project_id) {
-      queryParams.append('filter[project_id]', params.project_id);
-    }
-    
-    if (params?.is_active !== undefined) {
-      queryParams.append('filter[is_active]', params.is_active.toString());
-    }
-    
-    if (params?.email) {
-      queryParams.append('filter[email]', params.email);
-    }
-    
-    if (params?.limit) {
-      queryParams.append('page[size]', params.limit.toString());
-    }
-    
-    if (params?.page) {
-      queryParams.append('page[number]', params.page.toString());
-    }
-    
-    const queryString = queryParams.toString();
-    const path = `people${queryString ? `?${queryString}` : ''}`;
-    
-    return this.makeRequest<ProductiveResponse<ProductivePerson>>(path);
-  }
-  
-  async getTask(
+  getTask(
     taskId: string,
     options?: { include?: string }
   ): Promise<ProductiveSingleResponse<ProductiveTask>> {
-    const qs = options?.include
-      ? `?include=${encodeURIComponent(options.include)}`
-      : '';
-    return this.makeRequest<ProductiveSingleResponse<ProductiveTask>>(
-      `tasks/${taskId}${qs}`
-    );
+    return tasks.getTask(this.request, taskId, options);
   }
-
-  async updateTask(taskId: string, taskData: ProductiveTaskUpdate): Promise<ProductiveSingleResponse<ProductiveTask>> {
-    return this.makeRequest<ProductiveSingleResponse<ProductiveTask>>(`tasks/${taskId}`, {
-      method: 'PATCH',
-      body: JSON.stringify(taskData),
-    });
+  createTask(
+    taskData: ProductiveTaskCreate
+  ): Promise<ProductiveSingleResponse<ProductiveTask>> {
+    return tasks.createTask(this.request, taskData);
   }
-
-  async listActivities(params?: {
-    task_id?: string;
-    project_id?: string;
-    person_id?: string;
-    item_type?: string;
-    event?: string;
-    after?: string; // ISO 8601 date string
-    before?: string; // ISO 8601 date string
-    limit?: number;
-    page?: number;
-  }): Promise<ProductiveResponse<ProductiveActivity>> {
-    const queryParams = new URLSearchParams();
-    
-    if (params?.task_id) {
-      queryParams.append('filter[task_id]', params.task_id);
-    }
-    
-    if (params?.project_id) {
-      queryParams.append('filter[project_id]', params.project_id);
-    }
-    
-    if (params?.person_id) {
-      queryParams.append('filter[person_id]', params.person_id);
-    }
-    
-    if (params?.item_type) {
-      queryParams.append('filter[item_type]', params.item_type);
-    }
-    
-    if (params?.event) {
-      queryParams.append('filter[event]', params.event);
-    }
-    
-    if (params?.after) {
-      queryParams.append('filter[after]', params.after);
-    }
-    
-    if (params?.before) {
-      queryParams.append('filter[before]', params.before);
-    }
-    
-    if (params?.limit) {
-      queryParams.append('page[size]', params.limit.toString());
-    }
-    
-    if (params?.page) {
-      queryParams.append('page[number]', params.page.toString());
-    }
-    
-    const queryString = queryParams.toString();
-    const path = `activities${queryString ? `?${queryString}` : ''}`;
-    
-    return this.makeRequest<ProductiveResponse<ProductiveActivity>>(path);
+  updateTask(
+    taskId: string,
+    taskData: ProductiveTaskUpdate
+  ): Promise<ProductiveSingleResponse<ProductiveTask>> {
+    return tasks.updateTask(this.request, taskId, taskData);
   }
-
-  async createComment(commentData: ProductiveCommentCreate): Promise<ProductiveSingleResponse<ProductiveComment>> {
-    return this.makeRequest<ProductiveSingleResponse<ProductiveComment>>('comments', {
-      method: 'POST',
-      body: JSON.stringify(commentData),
-    });
+  listSubtasks(
+    parentTaskId: string,
+    params?: { limit?: number }
+  ): Promise<ProductiveResponse<ProductiveTask>> {
+    return tasks.listSubtasks(this.request, parentTaskId, params);
   }
-
-  async listWorkflowStatuses(params?: {
-    workflow_id?: string;
-    category_id?: number;
-    limit?: number;
-    page?: number;
-  }): Promise<ProductiveResponse<ProductiveWorkflowStatus>> {
-    const queryParams = new URLSearchParams();
-    
-    if (params?.workflow_id) {
-      queryParams.append('filter[workflow_id]', params.workflow_id);
-    }
-    
-    if (params?.category_id) {
-      queryParams.append('filter[category_id]', params.category_id.toString());
-    }
-    
-    if (params?.limit) {
-      queryParams.append('page[size]', params.limit.toString());
-    }
-    
-    if (params?.page) {
-      queryParams.append('page[number]', params.page.toString());
-    }
-    
-    const queryString = queryParams.toString();
-    const path = `workflow_statuses${queryString ? `?${queryString}` : ''}`;
-    
-    return this.makeRequest<ProductiveResponse<ProductiveWorkflowStatus>>(path);
-  }
-
-  /**
-   * List time entries with optional filters
-   * 
-   * @param params - Filter parameters for time entries
-   * @param params.date - Filter by specific date (ISO format: YYYY-MM-DD)
-   * @param params.after - Filter entries after this date (ISO format: YYYY-MM-DD)
-   * @param params.before - Filter entries before this date (ISO format: YYYY-MM-DD)
-   * @param params.person_id - Filter by person ID
-   * @param params.project_id - Filter by project ID
-   * @param params.task_id - Filter by task ID
-   * @param params.service_id - Filter by service ID
-   * @param params.limit - Number of results per page
-   * @param params.page - Page number for pagination
-   * @returns Promise resolving to paginated time entries response
-   * 
-   * @example
-   * // Get time entries for a specific person and date range
-   * const entries = await client.listTimeEntries({
-   *   person_id: "123",
-   *   after: "2023-01-01",
-   *   before: "2023-01-31"
-   * });
-   */
-  async listTimeEntries(params?: {
-    date?: string;
-    after?: string;
-    before?: string;
-    person_id?: string;
-    project_id?: string;
-    task_id?: string;
-    service_id?: string;
-    limit?: number;
-    page?: number;
-  }): Promise<ProductiveResponse<ProductiveTimeEntry>> {
-    const queryParams = new URLSearchParams();
-    
-    // Include relationships by default
-    queryParams.append('include', 'person,service,task');
-    
-    if (params?.date) {
-      queryParams.append('filter[date]', params.date);
-    }
-    
-    if (params?.after) {
-      queryParams.append('filter[after]', params.after);
-    }
-    
-    if (params?.before) {
-      queryParams.append('filter[before]', params.before);
-    }
-    
-    if (params?.person_id) {
-      queryParams.append('filter[person_id]', params.person_id);
-    }
-    
-    if (params?.project_id) {
-      queryParams.append('filter[project_id]', params.project_id);
-    }
-    
-    if (params?.task_id) {
-      queryParams.append('filter[task_id]', params.task_id);
-    }
-    
-    if (params?.service_id) {
-      queryParams.append('filter[service_id]', params.service_id);
-    }
-    
-    if (params?.limit) {
-      queryParams.append('page[size]', params.limit.toString());
-    }
-    
-    if (params?.page) {
-      queryParams.append('page[number]', params.page.toString());
-    }
-    
-    const queryString = queryParams.toString();
-    const path = `time_entries${queryString ? `?${queryString}` : ''}`;
-    
-    return this.makeRequest<ProductiveResponse<ProductiveTimeEntry>>(path);
-  }
-
-  /**
-   * Create a new time entry
-   * 
-   * @param timeEntryData - Time entry creation data
-   * @returns Promise resolving to the created time entry
-   * 
-   * @example
-   * // Create a time entry for a task
-   * const timeEntry = await client.createTimeEntry({
-   *   data: {
-   *     type: 'time_entries',
-   *     attributes: {
-   *       date: '2023-01-15',
-   *       time: 120, // 2 hours in minutes
-   *       note: 'Working on feature implementation'
-   *     },
-   *     relationships: {
-   *       person: { data: { id: '123', type: 'people' } },
-   *       service: { data: { id: '456', type: 'services' } },
-   *       task: { data: { id: '789', type: 'tasks' } }
-   *     }
-   *   }
-   * });
-   */
-  async createTimeEntry(timeEntryData: ProductiveTimeEntryCreate): Promise<ProductiveSingleResponse<ProductiveTimeEntry>> {
-    return this.makeRequest<ProductiveSingleResponse<ProductiveTimeEntry>>('time_entries', {
-      method: 'POST',
-      body: JSON.stringify(timeEntryData),
-    });
-  }
-
-  async updateTimeEntry(timeEntryId: string, data: ProductiveTimeEntryUpdate): Promise<ProductiveSingleResponse<ProductiveTimeEntry>> {
-    return this.makeRequest<ProductiveSingleResponse<ProductiveTimeEntry>>(`time_entries/${timeEntryId}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async deleteTimeEntry(timeEntryId: string): Promise<void> {
-    const url = `${this.config.PRODUCTIVE_API_BASE_URL}time_entries/${timeEntryId}`;
-    const response = await fetch(url, {
-      method: 'DELETE',
-      headers: this.getHeaders(),
-    });
-    if (!response.ok && response.status !== 204) {
-      throw new Error(await this.buildErrorMessage(response));
-    }
-  }
-
-  /**
-   * List deals/budgets for a specific project
-   * 
-   * @param params - Filter parameters for deals
-   * @param params.project_id - Filter by project ID (required)
-   * @param params.budget_type - Filter by budget type (1: deal, 2: budget)
-   * @param params.limit - Number of results per page
-   * @param params.page - Page number for pagination
-   * @returns Promise resolving to paginated deals response
-   * 
-   * @example
-   * // Get all deals/budgets for a project
-   * const deals = await client.listProjectDeals({
-   *   project_id: '123',
-   *   budget_type: 2 // Only budgets
-   * });
-   */
-  async listProjectDeals(params: {
-    project_id: string;
-    budget_type?: number; // 1: deal, 2: budget
-    limit?: number;
-    page?: number;
-  }): Promise<ProductiveResponse<ProductiveDeal>> {
-    const queryParams = new URLSearchParams();
-    
-    // Include project relationship
-    queryParams.append('include', 'project');
-    
-    // Filter by project - deals endpoint expects array format
-    queryParams.append('filter[project_id]', params.project_id);
-    
-    if (params.budget_type) {
-      queryParams.append('filter[budget_type]', params.budget_type.toString());
-    }
-    
-    if (params.limit) {
-      queryParams.append('page[size]', params.limit.toString());
-    }
-    
-    if (params.page) {
-      queryParams.append('page[number]', params.page.toString());
-    }
-    
-    const queryString = queryParams.toString();
-    const path = `deals${queryString ? `?${queryString}` : ''}`;
-    
-    return this.makeRequest<ProductiveResponse<ProductiveDeal>>(path);
-  }
-
-  /**
-   * List services available for a specific deal/budget
-   * 
-   * @param params - Filter parameters for services
-   * @param params.deal_id - Filter by deal/budget ID
-   * @param params.limit - Number of results per page
-   * @param params.page - Page number for pagination
-   * @returns Promise resolving to paginated services response
-   * 
-   * @example
-   * // Get services for a specific deal/budget
-   * const services = await client.listDealServices({
-   *   deal_id: '456'
-   * });
-   */
-  async listDealServices(params: {
-    deal_id: string;
-    limit?: number;
-    page?: number;
-  }): Promise<ProductiveResponse<ProductiveService>> {
-    const queryParams = new URLSearchParams();
-    
-    // Filter by deal/budget
-    queryParams.append('filter[deal_id]', params.deal_id);
-    
-    if (params.limit) {
-      queryParams.append('page[size]', params.limit.toString());
-    }
-    
-    if (params.page) {
-      queryParams.append('page[number]', params.page.toString());
-    }
-    
-    const queryString = queryParams.toString();
-    const path = `services${queryString ? `?${queryString}` : ''}`;
-    
-    return this.makeRequest<ProductiveResponse<ProductiveService>>(path);
-  }
-
-  /**
-   * List services available for time tracking
-   * 
-   * @param params - Filter parameters for services
-   * @param params.company_id - Filter by company ID
-   * @param params.limit - Number of results per page
-   * @param params.page - Page number for pagination
-   * @returns Promise resolving to paginated services response
-   * 
-   * @example
-   * // Get all services
-   * const services = await client.listServices({
-   *   company_id: '123'
-   * });
-   */
-  async listServices(params?: {
-    company_id?: string;
-    limit?: number;
-    page?: number;
-  }): Promise<ProductiveResponse<ProductiveService>> {
-    const queryParams = new URLSearchParams();
-    
-    if (params?.company_id) {
-      queryParams.append('filter[company_id]', params.company_id);
-    }
-    
-    if (params?.limit) {
-      queryParams.append('page[size]', params.limit.toString());
-    }
-    
-    if (params?.page) {
-      queryParams.append('page[number]', params.page.toString());
-    }
-    
-    const queryString = queryParams.toString();
-    const path = `services${queryString ? `?${queryString}` : ''}`;
-    
-    return this.makeRequest<ProductiveResponse<ProductiveService>>(path);
-  }
-
-  /**
-   * Get a specific time entry by ID
-   * 
-   * @param timeEntryId - The ID of the time entry to retrieve
-   * @returns Promise resolving to the time entry
-   * 
-   * @example
-   * const timeEntry = await client.getTimeEntry('123');
-   */
-  async getTimeEntry(timeEntryId: string): Promise<ProductiveSingleResponse<ProductiveTimeEntry>> {
-    return this.makeRequest<ProductiveSingleResponse<ProductiveTimeEntry>>(`time_entries/${timeEntryId}`);
-  }
-
-  /**
-   * Helper method to get time entries for a specific date range
-   * Convenience wrapper around listTimeEntries with date filtering
-   * 
-   * @param startDate - Start date in ISO format (YYYY-MM-DD)
-   * @param endDate - End date in ISO format (YYYY-MM-DD)
-   * @param additionalParams - Additional filter parameters
-   * @returns Promise resolving to paginated time entries response
-   * 
-   * @example
-   * // Get all time entries for last week
-   * const entries = await client.getTimeEntriesInDateRange(
-   *   '2023-01-01', 
-   *   '2023-01-07',
-   *   { person_id: '123' }
-   * );
-   */
-  async getTimeEntriesInDateRange(
-    startDate: string,
-    endDate: string,
-    additionalParams?: {
-      person_id?: string;
-      project_id?: string;
-      task_id?: string;
-      service_id?: string;
-      limit?: number;
-      page?: number;
-    }
-  ): Promise<ProductiveResponse<ProductiveTimeEntry>> {
-    return this.listTimeEntries({
-      after: startDate,
-      before: endDate,
-      ...additionalParams
-    });
-  }
-
-  /**
-   * Helper method to get time entries for today
-   * Convenience wrapper for getting current day's time entries
-   * 
-   * @param additionalParams - Additional filter parameters
-   * @returns Promise resolving to paginated time entries response
-   * 
-   * @example
-   * // Get today's time entries for a specific person
-   * const todayEntries = await client.getTodayTimeEntries({
-   *   person_id: '123'
-   * });
-   */
-  async getTodayTimeEntries(additionalParams?: {
-    person_id?: string;
-    project_id?: string;
-    task_id?: string;
-    service_id?: string;
-    limit?: number;
-    page?: number;
-  }): Promise<ProductiveResponse<ProductiveTimeEntry>> {
-    const today = new Date().toISOString().split('T')[0]; // Get YYYY-MM-DD format
-    return this.listTimeEntries({
-      date: today,
-      ...additionalParams
-    });
-  }
-
-  /**
-   * Reposition a task in a task list
-   * 
-   * @param taskId - ID of the task to reposition
-   * @param attributes - Positioning attributes (move_before_id and/or move_after_id)
-   * @returns Promise resolving to the task response
-   * 
-   * @example
-   * // Position task 1 after task 2
-   * await client.repositionTask('1', { move_after_id: '2' });
-   * 
-   * // Position task 3 between tasks 1 and 2
-   * await client.repositionTask('3', { move_after_id: '1', move_before_id: '2' });
-   */
-  // ─── rb2 Extensions ────────────────────────────────────────────────────────
-
-  /** Paginate through ALL pages of a resource and return all items */
-  async getAllPages<T>(path: string, baseParams: URLSearchParams): Promise<T[]> {
-    const results: T[] = [];
-    let page = 1;
-    while (true) {
-      baseParams.set('page[number]', page.toString());
-      baseParams.set('page[size]', '200');
-      const url = `${this.config.PRODUCTIVE_API_BASE_URL}${path}?${baseParams.toString()}`;
-      const resp = await fetch(url, { headers: this.getHeaders() as Record<string, string> });
-      if (!resp.ok) throw new Error(`API error ${resp.status} on ${path}`);
-      const json = await resp.json() as { data: T[]; meta?: { total_count?: number } };
-      results.push(...json.data);
-      const total = json.meta?.total_count ?? results.length;
-      if (results.length >= total) break;
-      page++;
-    }
-    return results;
-  }
-
-  /** List all deals/budgets org-wide or filtered by project */
-  async listDeals(params?: { project_id?: string }): Promise<any[]> {
-    const qp = new URLSearchParams();
-    if (params?.project_id) qp.set('filter[project_id]', params.project_id);
-    return this.getAllPages('deals', qp);
-  }
-
-  /** List services for a deal */
-  async listServicesForDeal(dealId: string): Promise<any[]> {
-    const qp = new URLSearchParams({ 'filter[deal_id]': dealId });
-    return this.getAllPages('services', qp);
-  }
-
-  /** List bookings with included person + service.deal.project chain for name resolution */
-  async listBookingsWithIncluded(params?: { after?: string; before?: string; person_id?: string }): Promise<{ bookings: any[]; included: any[] }> {
-    const qp = new URLSearchParams();
-    if (params?.after) qp.set('filter[after]', params.after);
-    if (params?.before) qp.set('filter[before]', params.before);
-    if (params?.person_id) qp.set('filter[person_id]', params.person_id);
-    qp.set('include', 'person,service.deal.project');
-    qp.set('page[size]', '200');
-
-    const bookings: any[] = [];
-    const includedMap: Record<string, any> = {};
-    let page = 1;
-
-    while (true) {
-      qp.set('page[number]', page.toString());
-      const url = `${this.config.PRODUCTIVE_API_BASE_URL}bookings?${qp.toString()}`;
-      const resp = await fetch(url, { headers: this.getHeaders() as Record<string, string> });
-      if (!resp.ok) throw new Error(`Bookings API error ${resp.status}`);
-      const json = await resp.json() as { data: any[]; included?: any[]; meta?: { total_count?: number } };
-      bookings.push(...json.data);
-      for (const item of json.included ?? []) {
-        includedMap[`${item.type}:${item.id}`] = item;
-      }
-      const total = json.meta?.total_count ?? bookings.length;
-      if (bookings.length >= total) break;
-      page++;
-    }
-
-    return { bookings, included: Object.values(includedMap) };
-  }
-
-  /** List all people (full fetch) */
-  async listAllPeople(): Promise<any[]> {
-    return this.getAllPages('people', new URLSearchParams());
-  }
-
-  async repositionTask(
+  repositionTask(
     taskId: string,
     attributes: {
       move_before_id?: string;
@@ -835,285 +191,254 @@ export class ProductiveAPIClient {
       placement?: number;
     }
   ): Promise<{ success: boolean; taskId: string; message: string }> {
-    const requestBody = {
-      data: {
-        type: 'tasks',
-        attributes: { ...attributes }
-      }
-    };
-
-    const url = `${this.config.PRODUCTIVE_API_BASE_URL}tasks/${taskId}/reposition`;
-    const response = await fetch(url, {
-      method: 'PATCH',
-      headers: this.getHeaders(),
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) {
-      throw new Error(await this.buildErrorMessage(response));
-    }
-
-    return {
-      success: true,
-      taskId: taskId,
-      message: `Task ${taskId} repositioned successfully`
-    };
+    return taskActions.repositionTask(this.request, taskId, attributes);
   }
 
-  async getPerson(personId: string): Promise<ProductiveSingleResponse<ProductivePerson>> {
-    return this.makeRequest<ProductiveSingleResponse<ProductivePerson>>(`people/${personId}`);
+  // ─── Boards ────────────────────────────────────────────────────────────────
+  listBoards(
+    params?: boards.ListBoardsParams
+  ): Promise<ProductiveResponse<ProductiveBoard>> {
+    return boards.listBoards(this.request, params);
+  }
+  createBoard(
+    boardData: ProductiveBoardCreate
+  ): Promise<ProductiveSingleResponse<ProductiveBoard>> {
+    return boards.createBoard(this.request, boardData);
   }
 
-  async listInvoices(params?: {
-    company_id?: string;
-    project_id?: string;
-    status?: number;
-    after?: string;
-    before?: string;
-    limit?: number;
-    page?: number;
-  }): Promise<ProductiveResponse<ProductiveInvoice>> {
-    const queryParams = new URLSearchParams();
-
-    if (params?.company_id) {
-      queryParams.append('filter[company_id]', params.company_id);
-    }
-    if (params?.project_id) {
-      queryParams.append('filter[project_id]', params.project_id);
-    }
-    if (params?.status !== undefined) {
-      queryParams.append('filter[status]', params.status.toString());
-    }
-    if (params?.after) {
-      queryParams.append('filter[after]', params.after);
-    }
-    if (params?.before) {
-      queryParams.append('filter[before]', params.before);
-    }
-    if (params?.limit) {
-      queryParams.append('page[size]', params.limit.toString());
-    }
-    if (params?.page) {
-      queryParams.append('page[number]', params.page.toString());
-    }
-
-    const queryString = queryParams.toString();
-    return this.makeRequest<ProductiveResponse<ProductiveInvoice>>(`invoices${queryString ? `?${queryString}` : ''}`);
+  // ─── Task lists ────────────────────────────────────────────────────────────
+  listTaskLists(
+    params?: taskLists.ListTaskListsParams
+  ): Promise<ProductiveResponse<ProductiveTaskList>> {
+    return taskLists.listTaskLists(this.request, params);
+  }
+  createTaskList(
+    data: ProductiveTaskListCreate
+  ): Promise<ProductiveSingleResponse<ProductiveTaskList>> {
+    return taskLists.createTaskList(this.request, data);
   }
 
-  async getInvoice(invoiceId: string): Promise<ProductiveSingleResponse<ProductiveInvoice>> {
-    return this.makeRequest<ProductiveSingleResponse<ProductiveInvoice>>(`invoices/${invoiceId}`);
+  // ─── People ────────────────────────────────────────────────────────────────
+  listPeople(
+    params?: people.ListPeopleParams
+  ): Promise<ProductiveResponse<ProductivePerson>> {
+    return people.listPeople(this.request, params);
   }
-
-  async listExpenses(params?: {
-    person_id?: string;
-    project_id?: string;
-    after?: string;
-    before?: string;
-    limit?: number;
-    page?: number;
-  }): Promise<ProductiveResponse<ProductiveExpense>> {
-    const queryParams = new URLSearchParams();
-
-    if (params?.person_id) {
-      queryParams.append('filter[person_id]', params.person_id);
-    }
-    if (params?.project_id) {
-      queryParams.append('filter[project_id]', params.project_id);
-    }
-    if (params?.after) {
-      queryParams.append('filter[after]', params.after);
-    }
-    if (params?.before) {
-      queryParams.append('filter[before]', params.before);
-    }
-    if (params?.limit) {
-      queryParams.append('page[size]', params.limit.toString());
-    }
-    if (params?.page) {
-      queryParams.append('page[number]', params.page.toString());
-    }
-
-    const queryString = queryParams.toString();
-    return this.makeRequest<ProductiveResponse<ProductiveExpense>>(`expenses${queryString ? `?${queryString}` : ''}`);
+  getPerson(
+    personId: string
+  ): Promise<ProductiveSingleResponse<ProductivePerson>> {
+    return people.getPerson(this.request, personId);
   }
-
-  async createExpense(data: ProductiveExpenseCreate): Promise<ProductiveSingleResponse<ProductiveExpense>> {
-    return this.makeRequest<ProductiveSingleResponse<ProductiveExpense>>('expenses', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async listMemberships(params?: {
-    project_id?: string;
-    person_id?: string;
-    limit?: number;
-    page?: number;
-  }): Promise<ProductiveResponse<ProductiveMembership>> {
-    const queryParams = new URLSearchParams();
-
-    if (params?.project_id) {
-      queryParams.append('filter[project_id]', params.project_id);
-    }
-    if (params?.person_id) {
-      queryParams.append('filter[person_id]', params.person_id);
-    }
-    if (params?.limit) {
-      queryParams.append('page[size]', params.limit.toString());
-    }
-    if (params?.page) {
-      queryParams.append('page[number]', params.page.toString());
-    }
-
-    const queryString = queryParams.toString();
-    return this.makeRequest<ProductiveResponse<ProductiveMembership>>(`memberships${queryString ? `?${queryString}` : ''}`);
-  }
-
-  async listBookings(params?: {
-    person_id?: string;
-    project_id?: string;
-    after?: string;
-    before?: string;
-    limit?: number;
-    page?: number;
-  }): Promise<ProductiveResponse<ProductiveBooking>> {
-    const queryParams = new URLSearchParams();
-
-    if (params?.person_id) {
-      queryParams.append('filter[person_id]', params.person_id);
-    }
-    if (params?.project_id) {
-      queryParams.append('filter[project_id]', params.project_id);
-    }
-    // Tool-side schema unifies bookings on `after`/`before` to match every other
-    // list endpoint; Productive expects the resource-specific
-    // `started_on_after` / `started_on_before` filter keys, so translate here.
-    if (params?.after) {
-      queryParams.append('filter[started_on_after]', params.after);
-    }
-    if (params?.before) {
-      queryParams.append('filter[started_on_before]', params.before);
-    }
-    if (params?.limit) {
-      queryParams.append('page[size]', params.limit.toString());
-    }
-    if (params?.page) {
-      queryParams.append('page[number]', params.page.toString());
-    }
-
-    const queryString = queryParams.toString();
-    return this.makeRequest<ProductiveResponse<ProductiveBooking>>(`bookings${queryString ? `?${queryString}` : ''}`);
-  }
-
-  // ─── Todos ─────────────────────────────────────────────────────────────────
-
-  async listTodos(taskId: string): Promise<ProductiveResponse<ProductiveTodo>> {
-    return this.makeRequest<ProductiveResponse<ProductiveTodo>>(`todos?filter[task_id]=${taskId}`);
-  }
-
-  async createTodo(todoData: ProductiveTodoCreate): Promise<ProductiveSingleResponse<ProductiveTodo>> {
-    return this.makeRequest<ProductiveSingleResponse<ProductiveTodo>>('todos', {
-      method: 'POST',
-      body: JSON.stringify(todoData),
-    });
-  }
-
-  async updateTodo(
-    todoId: string,
-    attrs: { title?: string; completed?: boolean }
-  ): Promise<ProductiveSingleResponse<ProductiveTodo>> {
-    return this.makeRequest<ProductiveSingleResponse<ProductiveTodo>>(`todos/${todoId}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ data: { type: 'todos', id: todoId, attributes: attrs } }),
-    });
-  }
-
-  async deleteTodo(todoId: string): Promise<void> {
-    const url = `${this.config.PRODUCTIVE_API_BASE_URL}todos/${todoId}`;
-    const response = await fetch(url, { method: 'DELETE', headers: this.getHeaders() });
-    if (!response.ok && response.status !== 204) {
-      throw new Error(await this.buildErrorMessage(response));
-    }
-  }
-
-  // ─── Subtasks ──────────────────────────────────────────────────────────────
-
-  async listSubtasks(parentTaskId: string, params?: { limit?: number }): Promise<ProductiveResponse<ProductiveTask>> {
-    const queryParams = new URLSearchParams();
-    queryParams.append('filter[parent_task_id]', parentTaskId);
-    if (params?.limit) {
-      queryParams.append('page[size]', params.limit.toString());
-    }
-    return this.makeRequest<ProductiveResponse<ProductiveTask>>(`tasks?${queryParams.toString()}`);
-  }
-
-  // ─── Task Dependencies ─────────────────────────────────────────────────────
-
-  async listTaskDependencies(taskId: string): Promise<ProductiveResponse<ProductiveDependency>> {
-    return this.makeRequest<ProductiveResponse<ProductiveDependency>>(
-      `task_dependencies?filter[task_id]=${taskId}&include=task,depends_on`
+  /** rb2: full org-wide people list (legacy untyped). */
+  listAllPeople(): Promise<unknown[]> {
+    return legacyGetAllPages<unknown>(
+      this.request,
+      'people',
+      new URLSearchParams()
     );
   }
 
-  async addTaskDependency(depData: ProductiveDependencyCreate): Promise<ProductiveSingleResponse<ProductiveDependency>> {
-    return this.makeRequest<ProductiveSingleResponse<ProductiveDependency>>('task_dependencies', {
-      method: 'POST',
-      body: JSON.stringify(depData),
-    });
+  // ─── Activities ────────────────────────────────────────────────────────────
+  listActivities(
+    params?: activities.ListActivitiesParams
+  ): Promise<ProductiveResponse<ProductiveActivity>> {
+    return activities.listActivities(this.request, params);
   }
 
-  async removeTaskDependency(dependencyId: string): Promise<void> {
-    const url = `${this.config.PRODUCTIVE_API_BASE_URL}task_dependencies/${dependencyId}`;
-    const response = await fetch(url, { method: 'DELETE', headers: this.getHeaders() });
-    if (!response.ok && response.status !== 204) {
-      throw new Error(await this.buildErrorMessage(response));
-    }
+  // ─── Comments ──────────────────────────────────────────────────────────────
+  createComment(
+    data: ProductiveCommentCreate
+  ): Promise<ProductiveSingleResponse<ProductiveComment>> {
+    return comments.createComment(this.request, data);
+  }
+
+  // ─── Workflow statuses ─────────────────────────────────────────────────────
+  listWorkflowStatuses(
+    params?: workflowStatuses.ListWorkflowStatusesParams
+  ): Promise<ProductiveResponse<ProductiveWorkflowStatus>> {
+    return workflowStatuses.listWorkflowStatuses(this.request, params);
+  }
+
+  // ─── Time entries ──────────────────────────────────────────────────────────
+  listTimeEntries(
+    params?: timeEntries.ListTimeEntriesParams
+  ): Promise<ProductiveResponse<ProductiveTimeEntry>> {
+    return timeEntries.listTimeEntries(this.request, params);
+  }
+  getTimeEntry(
+    id: string
+  ): Promise<ProductiveSingleResponse<ProductiveTimeEntry>> {
+    return timeEntries.getTimeEntry(this.request, id);
+  }
+  createTimeEntry(
+    data: ProductiveTimeEntryCreate
+  ): Promise<ProductiveSingleResponse<ProductiveTimeEntry>> {
+    return timeEntries.createTimeEntry(this.request, data);
+  }
+  updateTimeEntry(
+    id: string,
+    data: ProductiveTimeEntryUpdate
+  ): Promise<ProductiveSingleResponse<ProductiveTimeEntry>> {
+    return timeEntries.updateTimeEntry(this.request, id, data);
+  }
+  deleteTimeEntry(id: string): Promise<void> {
+    return timeEntries.deleteTimeEntry(this.request, id);
+  }
+
+  /** Convenience: time entries in a date range. */
+  getTimeEntriesInDateRange(
+    startDate: string,
+    endDate: string,
+    additionalParams?: Omit<
+      timeEntries.ListTimeEntriesParams,
+      'after' | 'before'
+    >
+  ): Promise<ProductiveResponse<ProductiveTimeEntry>> {
+    return this.listTimeEntries({
+      after: startDate,
+      before: endDate,
+      ...additionalParams,
+    });
+  }
+  /** Convenience: today's time entries. */
+  getTodayTimeEntries(
+    additionalParams?: Omit<timeEntries.ListTimeEntriesParams, 'date'>
+  ): Promise<ProductiveResponse<ProductiveTimeEntry>> {
+    const today = new Date().toISOString().split('T')[0]!;
+    return this.listTimeEntries({ date: today, ...additionalParams });
+  }
+
+  // ─── Deals & services ──────────────────────────────────────────────────────
+  listProjectDeals(
+    params: deals.ListProjectDealsParams
+  ): Promise<ProductiveResponse<ProductiveDeal>> {
+    return deals.listProjectDeals(this.request, params);
+  }
+  /** rb2: full org-wide deal list (legacy untyped). */
+  listDeals(params?: { project_id?: string }): Promise<unknown[]> {
+    return deals.listDealsAllPages(this.request, params);
+  }
+  listDealServices(
+    params: services.ListDealServicesParams
+  ): Promise<ProductiveResponse<ProductiveService>> {
+    return services.listDealServices(this.request, params);
+  }
+  /** rb2: full service list for a deal (legacy untyped). */
+  listServicesForDeal(dealId: string): Promise<unknown[]> {
+    return services.listServicesForDealAllPages(this.request, dealId);
+  }
+  listServices(
+    params?: services.ListServicesParams
+  ): Promise<ProductiveResponse<ProductiveService>> {
+    return services.listServices(this.request, params);
+  }
+
+  // ─── Bookings ──────────────────────────────────────────────────────────────
+  listBookings(
+    params?: bookings.ListBookingsParams
+  ): Promise<ProductiveResponse<ProductiveBooking>> {
+    return bookings.listBookings(this.request, params);
+  }
+  /** rb2: bookings + included person/service/deal/project chain. */
+  listBookingsWithIncluded(params?: {
+    after?: string;
+    before?: string;
+    person_id?: string;
+  }): Promise<{ bookings: unknown[]; included: unknown[] }> {
+    return bookings.listBookingsWithIncludedAllPages(this.request, params);
+  }
+
+  // ─── Invoices ──────────────────────────────────────────────────────────────
+  listInvoices(
+    params?: invoices.ListInvoicesParams
+  ): Promise<ProductiveResponse<ProductiveInvoice>> {
+    return invoices.listInvoices(this.request, params);
+  }
+  getInvoice(
+    invoiceId: string
+  ): Promise<ProductiveSingleResponse<ProductiveInvoice>> {
+    return invoices.getInvoice(this.request, invoiceId);
+  }
+
+  // ─── Expenses ──────────────────────────────────────────────────────────────
+  listExpenses(
+    params?: expenses.ListExpensesParams
+  ): Promise<ProductiveResponse<ProductiveExpense>> {
+    return expenses.listExpenses(this.request, params);
+  }
+  createExpense(
+    data: ProductiveExpenseCreate
+  ): Promise<ProductiveSingleResponse<ProductiveExpense>> {
+    return expenses.createExpense(this.request, data);
+  }
+
+  // ─── Memberships ───────────────────────────────────────────────────────────
+  listMemberships(
+    params?: memberships.ListMembershipsParams
+  ): Promise<ProductiveResponse<ProductiveMembership>> {
+    return memberships.listMemberships(this.request, params);
+  }
+
+  // ─── Todos ─────────────────────────────────────────────────────────────────
+  listTodos(
+    taskId: string
+  ): Promise<ProductiveResponse<ProductiveTodo>> {
+    return todos.listTodos(this.request, taskId);
+  }
+  createTodo(
+    data: ProductiveTodoCreate
+  ): Promise<ProductiveSingleResponse<ProductiveTodo>> {
+    return todos.createTodo(this.request, data);
+  }
+  updateTodo(
+    todoId: string,
+    attrs: { title?: string; completed?: boolean }
+  ): Promise<ProductiveSingleResponse<ProductiveTodo>> {
+    return todos.updateTodo(this.request, todoId, attrs);
+  }
+  deleteTodo(todoId: string): Promise<void> {
+    return todos.deleteTodo(this.request, todoId);
+  }
+
+  // ─── Task dependencies ─────────────────────────────────────────────────────
+  listTaskDependencies(
+    taskId: string
+  ): Promise<ProductiveResponse<ProductiveDependency>> {
+    return dependencies.listTaskDependencies(this.request, taskId);
+  }
+  addTaskDependency(
+    depData: ProductiveDependencyCreate
+  ): Promise<ProductiveSingleResponse<ProductiveDependency>> {
+    return dependencies.addTaskDependency(this.request, depData);
+  }
+  removeTaskDependency(dependencyId: string): Promise<void> {
+    return dependencies.removeTaskDependency(this.request, dependencyId);
   }
 
   // ─── Pages ─────────────────────────────────────────────────────────────────
-
-  async listPages(params?: {
-    project_id?: string;
-    limit?: number;
-    page?: number;
-  }): Promise<ProductiveResponse<ProductivePage>> {
-    const queryParams = new URLSearchParams();
-    if (params?.project_id) {
-      queryParams.append('filter[project_id]', params.project_id);
-    }
-    if (params?.limit) {
-      queryParams.append('page[size]', params.limit.toString());
-    }
-    if (params?.page) {
-      queryParams.append('page[number]', params.page.toString());
-    }
-    const queryString = queryParams.toString();
-    return this.makeRequest<ProductiveResponse<ProductivePage>>(`pages${queryString ? `?${queryString}` : ''}`);
+  listPages(
+    params?: pages.ListPagesParams
+  ): Promise<ProductiveResponse<ProductivePage>> {
+    return pages.listPages(this.request, params);
   }
-
-  async getPage(pageId: string): Promise<ProductiveSingleResponse<ProductivePage>> {
-    return this.makeRequest<ProductiveSingleResponse<ProductivePage>>(`pages/${pageId}`);
+  getPage(
+    pageId: string
+  ): Promise<ProductiveSingleResponse<ProductivePage>> {
+    return pages.getPage(this.request, pageId);
   }
 
   // ─── Attachments ───────────────────────────────────────────────────────────
+  listAttachments(
+    params: attachments.ListAttachmentsParams
+  ): Promise<ProductiveResponse<ProductiveAttachment>> {
+    return attachments.listAttachments(this.request, params);
+  }
 
-  async listAttachments(params: {
-    task_id?: string;
-    comment_id?: string;
-    limit?: number;
-  }): Promise<ProductiveResponse<ProductiveAttachment>> {
-    const queryParams = new URLSearchParams();
-    if (params.task_id) {
-      queryParams.append('filter[attachable_id]', params.task_id);
-      queryParams.append('filter[attachable_type]', 'Task');
-    } else if (params.comment_id) {
-      queryParams.append('filter[attachable_id]', params.comment_id);
-      queryParams.append('filter[attachable_type]', 'Comment');
-    }
-    if (params.limit) {
-      queryParams.append('page[size]', params.limit.toString());
-    }
-    return this.makeRequest<ProductiveResponse<ProductiveAttachment>>(`attachments?${queryParams.toString()}`);
+  // ─── Legacy untyped pagination (used by rb2 tools) ────────────────────────
+  getAllPages<T>(
+    path: string,
+    baseParams: URLSearchParams
+  ): Promise<T[]> {
+    return legacyGetAllPages<T>(this.request, path, baseParams);
   }
 }

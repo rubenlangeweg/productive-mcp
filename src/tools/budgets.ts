@@ -28,11 +28,13 @@ export async function getBudgetBurnTool_handler(
   const params = getBudgetBurnSchema.parse(args ?? {});
 
   try {
-    const deals = await client.listDeals({ project_id: params.project_id });
+    const deals = (await client.listDeals({
+      project_id: params.project_id,
+    })) as Array<{ id: string; attributes?: { budget?: boolean; budget_total?: number; budget_used?: number; invoiced?: number; name?: string; [k: string]: unknown } }>;
 
     // Filter to budget deals only (budget: true) and those with a non-zero budget
     const budgetDeals = deals
-      .filter((d: any) => d.attributes?.budget === true && (d.attributes?.budget_total ?? 0) > 0)
+      .filter((d) => d.attributes?.budget === true && (d.attributes?.budget_total ?? 0) > 0)
       .slice(0, params.limit ?? 30);
 
     if (budgetDeals.length === 0) {
