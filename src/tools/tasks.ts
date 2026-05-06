@@ -45,7 +45,8 @@ export async function listTasksTool(
     const tasksText = response.data.filter(task => task && task.attributes).map(task => {
       const projectId = task.relationships?.project?.data?.id;
       const assigneeId = task.relationships?.assignee?.data?.id;
-      const statusText = task.attributes.status === 1 ? 'open' : task.attributes.status === 2 ? 'closed' : `status ${task.attributes.status}`;
+      // Productive responses expose `closed: boolean` rather than `status: number`.
+      const statusText = task.attributes.closed === true ? 'closed' : task.attributes.closed === false ? 'open' : 'unknown';
       return `• ${task.attributes.title} (ID: ${task.id})
   Status: ${statusText}
   ${task.attributes.due_date ? `Due: ${task.attributes.due_date}` : 'No due date'}
@@ -101,7 +102,8 @@ export async function getProjectTasksTool(
     
     const tasksText = response.data.filter(task => task && task.attributes).map(task => {
       const assigneeId = task.relationships?.assignee?.data?.id;
-      const statusText = task.attributes.status === 1 ? 'open' : task.attributes.status === 2 ? 'closed' : `status ${task.attributes.status}`;
+      // Productive responses expose `closed: boolean` rather than `status: number`.
+      const statusText = task.attributes.closed === true ? 'closed' : task.attributes.closed === false ? 'open' : 'unknown';
       return `• ${task.attributes.title} (ID: ${task.id})
   Status: ${statusText}
   ${task.attributes.due_date ? `Due: ${task.attributes.due_date}` : 'No due date'}
@@ -419,7 +421,9 @@ export async function createTaskTool(
     if (response.data.attributes.description) {
       text += `\nDescription: ${response.data.attributes.description}`;
     }
-    const statusText = response.data.attributes.status === 1 ? 'open' : 'closed';
+    // Productive responses expose `closed: boolean`. The intended new status sent
+    // on POST is reflected back via that field.
+    const statusText = response.data.attributes.closed === true ? 'closed' : response.data.attributes.closed === false ? 'open' : 'unknown';
     text += `\nStatus: ${statusText}`;
     if (response.data.attributes.due_date) {
       text += `\nDue date: ${response.data.attributes.due_date}`;
