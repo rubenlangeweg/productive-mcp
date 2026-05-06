@@ -19,7 +19,7 @@ import { getRecentUpdates, getRecentUpdatesTool } from './tools/recent-updates.j
 import { addTaskCommentTool, addTaskCommentDefinition } from './tools/comments.js';
 import { updateTaskStatusTool, updateTaskStatusDefinition } from './tools/task-status.js';
 import { listWorkflowStatusesTool, listWorkflowStatusesDefinition } from './tools/workflow-statuses.js';
-import { listTimeEntresTool, createTimeEntryTool, listServicesTool, getProjectServicesTool, listProjectDealsTool, listDealServicesTool, listTimeEntriesDefinition, createTimeEntryDefinition, listServicesDefinition, getProjectServicesDefinition, listProjectDealsDefinition, listDealServicesDefinition, updateTimeEntryTool, updateTimeEntryDefinition, deleteTimeEntryTool, deleteTimeEntryDefinition } from './tools/time-entries.js';
+import { listTimeEntriesTool, createTimeEntryTool, listServicesTool, getProjectServicesTool, listProjectDealsTool, listDealServicesTool, listTimeEntriesDefinition, createTimeEntryDefinition, listServicesDefinition, getProjectServicesDefinition, listProjectDealsDefinition, listDealServicesDefinition, updateTimeEntryTool, updateTimeEntryDefinition, deleteTimeEntryTool, deleteTimeEntryDefinition } from './tools/time-entries.js';
 import { updateTaskSprint, updateTaskSprintTool } from './tools/task-sprint.js';
 import { moveTaskToList, moveTaskToListTool } from './tools/task-list-move.js';
 import { addToBacklog, addToBacklogTool } from './tools/task-backlog.js';
@@ -237,7 +237,7 @@ export async function createServer() {
         return await getRecentUpdates(apiClient, args);
         
       case 'list_time_entries':
-        return await listTimeEntresTool(apiClient, args, config);
+        return await listTimeEntriesTool(apiClient, args, config);
         
       case 'create_time_entry':
         return await createTimeEntryTool(apiClient, args, config);
