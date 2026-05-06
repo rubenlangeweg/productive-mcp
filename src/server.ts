@@ -87,6 +87,7 @@ interface LegacyToolDefinition {
   description: string;
   annotations?: Record<string, unknown>;
   inputSchema: Record<string, unknown>;
+  outputSchema?: Record<string, import('zod').ZodTypeAny>;
 }
 
 interface LegacyPromptArgument {
@@ -181,10 +182,10 @@ export function buildServer(): McpServer {
         description: def.description,
         annotations: annotationsWithTitle(def, def.name),
         inputSchema: jsonSchemaToZodShape(def.inputSchema),
+        ...(def.outputSchema ? { outputSchema: def.outputSchema } : {}),
       },
       async (args: unknown) => {
         const result = await handler(args as Args);
-        // Tool handlers already return `{ content: [...] }` — pass through.
         return result as CallToolResult;
       }
     );
