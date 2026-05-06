@@ -6,6 +6,10 @@ const listTodosSchema = z.object({
   task_id: z.string().min(1, 'Task ID is required'),
 });
 
+const getTodoSchema = z.object({
+  todo_id: z.string().min(1, 'Todo ID is required'),
+});
+
 const createTodoSchema = z.object({
   task_id: z.string().min(1, 'Task ID is required'),
   title: z.string().min(1, 'Todo title is required'),
@@ -183,6 +187,43 @@ export const deleteTodoDefinition = {
     type: 'object',
     properties: {
       todo_id: { type: 'string', description: 'The ID of the todo item to delete' },
+    },
+    required: ['todo_id'],
+  },
+};
+
+export async function getTodoTool(
+  client: ProductiveAPIClient,
+  args: unknown
+): Promise<{ content: Array<{ type: string; text: string }> }> {
+  try {
+    const params = getTodoSchema.parse(args);
+    const response = await client.getTodo(params.todo_id);
+    const todo = response.data;
+    const taskId = todo.relationships?.task?.data?.id;
+    let text = `${todo.attributes.completed ? '☑' : '☐'} ${todo.attributes.title} (ID: ${todo.id})\n`;
+    text += `Completed: ${todo.attributes.completed}\n`;
+    if (taskId) text += `Task ID: ${taskId}\n`;
+    if (todo.attributes.position !== undefined) text += `Position: ${todo.attributes.position}\n`;
+    if (todo.attributes.created_at) text += `Created: ${todo.attributes.created_at}\n`;
+    if (todo.attributes.updated_at) text += `Updated: ${todo.attributes.updated_at}`;
+    return { content: [{ type: 'text', text }] };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new McpError(ErrorCode.InvalidParams, `Invalid parameters: ${error.errors.map(e => e.message).join(', ')}`);
+    }
+    throw new McpError(ErrorCode.InternalError, error instanceof Error ? error.message : 'Unknown error occurred');
+  }
+}
+
+export const getTodoDefinition = {
+  name: 'get_todo',
+  description: 'Get a single todo/checklist item by its ID.',
+  annotations: { readOnlyHint: true },
+  inputSchema: {
+    type: 'object',
+    properties: {
+      todo_id: { type: 'string', description: 'The ID of the todo item' },
     },
     required: ['todo_id'],
   },

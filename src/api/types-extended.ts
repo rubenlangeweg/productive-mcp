@@ -423,6 +423,53 @@ export interface ProductiveAttachment {
 }
 
 /**
+ * Folder entity for organising boards within a project.
+ * Productive's `folders` resource groups boards under a named folder.
+ */
+export interface ProductiveFolder {
+  id: string;
+  type: 'folders';
+  attributes: {
+    name: string;
+    status?: number; // 1 = active, 2 = archived
+    position?: number;
+    created_at: string;
+    updated_at: string;
+    archived_at?: string;
+    [key: string]: unknown;
+  };
+  relationships?: {
+    project?: {
+      data: {
+        id: string;
+        type: 'projects';
+      };
+    };
+    [key: string]: unknown;
+  };
+}
+
+/**
+ * Folder creation interface for Productive API.
+ */
+export interface ProductiveFolderCreate {
+  data: {
+    type: 'folders';
+    attributes: {
+      name: string;
+    };
+    relationships: {
+      project: {
+        data: {
+          id: string;
+          type: 'projects';
+        };
+      };
+    };
+  };
+}
+
+/**
  * Booking entity for resource planning/capacity management
  */
 export interface ProductiveBooking {

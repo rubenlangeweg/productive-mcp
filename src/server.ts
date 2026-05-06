@@ -10,15 +10,21 @@ import { getConfig } from './config/index.js';
 import { ProductiveAPIClient } from './api/client.js';
 import { jsonSchemaToZodShape } from './server/json-schema-to-zod.js';
 import { listProjectsTool, listProjectsDefinition } from './tools/projects.js';
-import { listTasksTool, getProjectTasksTool, getTaskTool, createTaskTool, updateTaskAssignmentTool, updateTaskDetailsTool, listTasksDefinition, getProjectTasksDefinition, getTaskDefinition, createTaskDefinition, updateTaskAssignmentDefinition, updateTaskDetailsDefinition } from './tools/tasks.js';
+import { listTasksTool, getProjectTasksTool, getTaskTool, createTaskTool, updateTaskAssignmentTool, updateTaskDetailsTool, deleteTaskTool, listTasksDefinition, getProjectTasksDefinition, getTaskDefinition, createTaskDefinition, updateTaskAssignmentDefinition, updateTaskDetailsDefinition, deleteTaskDefinition } from './tools/tasks.js';
 import { listCompaniesTool, listCompaniesDefinition } from './tools/companies.js';
 import { myTasksTool, myTasksDefinition } from './tools/my-tasks.js';
 import { listBoards, createBoard, listBoardsTool, createBoardTool } from './tools/boards.js';
-import { listTaskLists, createTaskList, listTaskListsTool, createTaskListTool } from './tools/task-lists.js';
+import {
+  listTaskLists, createTaskList, getTaskList, updateTaskList, archiveTaskList, restoreTaskList, repositionTaskList,
+  listTaskListsTool, createTaskListTool, getTaskListTool, updateTaskListTool, archiveTaskListTool, restoreTaskListTool, repositionTaskListTool,
+} from './tools/task-lists.js';
 import { whoAmI, whoAmITool } from './tools/whoami.js';
 import { listActivities, listActivitiesTool } from './tools/activities.js';
 import { getRecentUpdates, getRecentUpdatesTool } from './tools/recent-updates.js';
-import { addTaskCommentTool, addTaskCommentDefinition } from './tools/comments.js';
+import {
+  addTaskCommentTool, listCommentsTool, getCommentTool, updateCommentTool, deleteCommentTool, pinCommentTool, unpinCommentTool, addCommentReactionTool,
+  addTaskCommentDefinition, listCommentsDefinition, getCommentDefinition, updateCommentDefinition, deleteCommentDefinition, pinCommentDefinition, unpinCommentDefinition, addCommentReactionDefinition,
+} from './tools/comments.js';
 import { updateTaskStatusTool, updateTaskStatusDefinition } from './tools/task-status.js';
 import { listWorkflowStatusesTool, listWorkflowStatusesDefinition } from './tools/workflow-statuses.js';
 import { listTimeEntriesTool, createTimeEntryTool, listServicesTool, getProjectServicesTool, listProjectDealsTool, listDealServicesTool, listTimeEntriesDefinition, createTimeEntryDefinition, listServicesDefinition, getProjectServicesDefinition, listProjectDealsDefinition, listDealServicesDefinition, updateTimeEntryTool, updateTimeEntryDefinition, deleteTimeEntryTool, deleteTimeEntryDefinition } from './tools/time-entries.js';
@@ -36,11 +42,18 @@ import { listPeopleTool, getPersonTool, listPeopleDefinition, getPersonDefinitio
 import { listInvoicesTool, getInvoiceTool, listInvoicesDefinition, getInvoiceDefinition } from './tools/invoices.js';
 import { listExpensesTool, createExpenseTool, listExpensesDefinition, createExpenseDefinition } from './tools/expenses.js';
 import { listMembershipsTool, listMembershipsDefinition } from './tools/memberships.js';
-import { listSubtasksTool, listSubtasksDefinition } from './tools/subtasks.js';
-import { listTodosTool, createTodoTool, updateTodoTool, deleteTodoTool, listTodosDefinition, createTodoDefinition, updateTodoDefinition, deleteTodoDefinition } from './tools/todos.js';
-import { listTaskDependenciesTool, addTaskDependencyTool, removeTaskDependencyTool, listTaskDependenciesDefinition, addTaskDependencyDefinition, removeTaskDependencyDefinition } from './tools/dependencies.js';
+import { listSubtasksTool, createSubtaskTool, listSubtasksDefinition, createSubtaskDefinition } from './tools/subtasks.js';
+import { listTodosTool, createTodoTool, updateTodoTool, deleteTodoTool, getTodoTool, listTodosDefinition, createTodoDefinition, updateTodoDefinition, deleteTodoDefinition, getTodoDefinition } from './tools/todos.js';
+import { listTaskDependenciesTool, addTaskDependencyTool, removeTaskDependencyTool, getTaskDependencyTool, listTaskDependenciesDefinition, addTaskDependencyDefinition, removeTaskDependencyDefinition, getTaskDependencyDefinition } from './tools/dependencies.js';
 import { createTasksBatchTool, createTasksBatchDefinition } from './tools/batch.js';
-import { listPagesTool, getPageTool, listPagesDefinition, getPageDefinition } from './tools/pages.js';
+import {
+  listPagesTool, getPageTool, createPageTool, updatePageTool, deletePageTool, movePageTool, copyPageTool,
+  listPagesDefinition, getPageDefinition, createPageDefinition, updatePageDefinition, deletePageDefinition, movePageDefinition, copyPageDefinition,
+} from './tools/pages.js';
+import {
+  listFoldersTool, getFolderTool, createFolderTool, updateFolderTool, archiveFolderTool, restoreFolderTool,
+  listFoldersDefinition, getFolderDefinition, createFolderDefinition, updateFolderDefinition, archiveFolderDefinition, restoreFolderDefinition,
+} from './tools/folders.js';
 import { listAttachmentsTool, listAttachmentsDefinition } from './tools/attachments.js';
 
 /**
@@ -201,6 +214,11 @@ export function buildServer(): McpServer {
   registerTool(createBoardTool, (args) => createBoard(apiClient, args));
   registerTool(listTaskListsTool, (args) => listTaskLists(apiClient, args));
   registerTool(createTaskListTool, (args) => createTaskList(apiClient, args));
+  registerTool(getTaskListTool, (args) => getTaskList(apiClient, args));
+  registerTool(updateTaskListTool, (args) => updateTaskList(apiClient, args));
+  registerTool(archiveTaskListTool, (args) => archiveTaskList(apiClient, args));
+  registerTool(restoreTaskListTool, (args) => restoreTaskList(apiClient, args));
+  registerTool(repositionTaskListTool, (args) => repositionTaskList(apiClient, args));
   registerTool(listTasksDefinition, (args) => listTasksTool(apiClient, args));
   registerTool(getProjectTasksDefinition, (args) => getProjectTasksTool(apiClient, args));
   registerTool(getTaskDefinition, (args) => getTaskTool(apiClient, args));
@@ -209,7 +227,15 @@ export function buildServer(): McpServer {
     updateTaskAssignmentTool(apiClient, args, config)
   );
   registerTool(updateTaskDetailsDefinition, (args) => updateTaskDetailsTool(apiClient, args));
+  registerTool(deleteTaskDefinition, (args) => deleteTaskTool(apiClient, args));
   registerTool(addTaskCommentDefinition, (args) => addTaskCommentTool(apiClient, args));
+  registerTool(listCommentsDefinition, (args) => listCommentsTool(apiClient, args));
+  registerTool(getCommentDefinition, (args) => getCommentTool(apiClient, args));
+  registerTool(updateCommentDefinition, (args) => updateCommentTool(apiClient, args));
+  registerTool(deleteCommentDefinition, (args) => deleteCommentTool(apiClient, args));
+  registerTool(pinCommentDefinition, (args) => pinCommentTool(apiClient, args));
+  registerTool(unpinCommentDefinition, (args) => unpinCommentTool(apiClient, args));
+  registerTool(addCommentReactionDefinition, (args) => addCommentReactionTool(apiClient, args));
   registerTool(updateTaskStatusDefinition, (args) => updateTaskStatusTool(apiClient, args));
   registerTool(listWorkflowStatusesDefinition, (args) =>
     listWorkflowStatusesTool(apiClient, args)
@@ -276,10 +302,12 @@ export function buildServer(): McpServer {
   );
   registerTool(getOrgOverviewTool, (args) => getOrgOverviewHandler(apiClient, args));
   registerTool(listSubtasksDefinition, (args) => listSubtasksTool(apiClient, args));
+  registerTool(createSubtaskDefinition, (args) => createSubtaskTool(apiClient, args, config));
   registerTool(listTodosDefinition, (args) => listTodosTool(apiClient, args));
   registerTool(createTodoDefinition, (args) => createTodoTool(apiClient, args));
   registerTool(updateTodoDefinition, (args) => updateTodoTool(apiClient, args));
   registerTool(deleteTodoDefinition, (args) => deleteTodoTool(apiClient, args));
+  registerTool(getTodoDefinition, (args) => getTodoTool(apiClient, args));
   registerTool(listTaskDependenciesDefinition, (args) =>
     listTaskDependenciesTool(apiClient, args)
   );
@@ -289,11 +317,25 @@ export function buildServer(): McpServer {
   registerTool(removeTaskDependencyDefinition, (args) =>
     removeTaskDependencyTool(apiClient, args)
   );
+  registerTool(getTaskDependencyDefinition, (args) =>
+    getTaskDependencyTool(apiClient, args)
+  );
   registerTool(createTasksBatchDefinition, (args) =>
     createTasksBatchTool(apiClient, args, config)
   );
   registerTool(listPagesDefinition, (args) => listPagesTool(apiClient, args));
   registerTool(getPageDefinition, (args) => getPageTool(apiClient, args));
+  registerTool(createPageDefinition, (args) => createPageTool(apiClient, args));
+  registerTool(updatePageDefinition, (args) => updatePageTool(apiClient, args));
+  registerTool(deletePageDefinition, (args) => deletePageTool(apiClient, args));
+  registerTool(movePageDefinition, (args) => movePageTool(apiClient, args));
+  registerTool(copyPageDefinition, (args) => copyPageTool(apiClient, args));
+  registerTool(listFoldersDefinition, (args) => listFoldersTool(apiClient, args));
+  registerTool(getFolderDefinition, (args) => getFolderTool(apiClient, args));
+  registerTool(createFolderDefinition, (args) => createFolderTool(apiClient, args));
+  registerTool(updateFolderDefinition, (args) => updateFolderTool(apiClient, args));
+  registerTool(archiveFolderDefinition, (args) => archiveFolderTool(apiClient, args));
+  registerTool(restoreFolderDefinition, (args) => restoreFolderTool(apiClient, args));
   registerTool(listAttachmentsDefinition, (args) => listAttachmentsTool(apiClient, args));
 
   // ─── Prompts ───────────────────────────────────────────────────────────

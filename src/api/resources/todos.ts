@@ -15,6 +15,15 @@ export function listTodos(
   );
 }
 
+export function getTodo(
+  request: Requester,
+  todoId: string
+): Promise<ProductiveSingleResponse<ProductiveTodo>> {
+  return request<ProductiveSingleResponse<ProductiveTodo>>(
+    `todos/${todoId}`
+  );
+}
+
 export function createTodo(
   request: Requester,
   todoData: ProductiveTodoCreate
