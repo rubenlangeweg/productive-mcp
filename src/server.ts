@@ -2,6 +2,9 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema, ListPromptsRequestSchema, GetPromptRequestSchema, ListResourcesRequestSchema, ReadResourceRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve as resolvePath } from 'node:path';
 import { getConfig } from './config/index.js';
 import { ProductiveAPIClient } from './api/client.js';
 import { listProjectsTool, listProjectsDefinition } from './tools/projects.js';
@@ -38,15 +41,54 @@ import { createTasksBatchTool, createTasksBatchDefinition } from './tools/batch.
 import { listPagesTool, getPageTool, listPagesDefinition, getPageDefinition } from './tools/pages.js';
 import { listAttachmentsTool, listAttachmentsDefinition } from './tools/attachments.js';
 
+/**
+ * Read the server version from package.json so the MCP `initialize` response
+ * always advertises the same version that npm publishes.
+ *
+ * The compiled output lives in `build/`, while package.json sits at the repo
+ * root one level above. Resolve relative to the current module to work both
+ * in `build/` (production) and when running TypeScript sources directly
+ * (vitest test harness).
+ */
+function readServerVersion(): string {
+  const here = dirname(fileURLToPath(import.meta.url));
+  // Try package.json one directory up from build/ (production) and two up
+  // when running from src/ directly (tests).
+  const candidates = [
+    resolvePath(here, '..', 'package.json'),
+    resolvePath(here, '..', '..', 'package.json'),
+  ];
+  for (const candidate of candidates) {
+    try {
+      const raw = readFileSync(candidate, 'utf-8');
+      const parsed = JSON.parse(raw) as { version?: unknown; name?: unknown };
+      if (
+        parsed &&
+        typeof parsed.version === 'string' &&
+        typeof parsed.name === 'string' &&
+        parsed.name === 'productive-mcp-rb2'
+      ) {
+        return parsed.version;
+      }
+    } catch {
+      // try next candidate
+    }
+  }
+  // Fall back to a recognisable sentinel rather than masking the failure.
+  return '0.0.0-unknown';
+}
+
+export const SERVER_VERSION = readServerVersion();
+
 export async function createServer() {
   // Initialize API client and config early to check user context
   const config = getConfig();
   const hasConfiguredUser = !!config.PRODUCTIVE_USER_ID;
-  
+
   const server = new Server(
     {
       name: 'productive-mcp',
-      version: '1.0.0',
+      version: SERVER_VERSION,
       description: `MCP server for Productive.io API integration. Productive has a hierarchical structure: Customers → Projects → Boards → Task Lists → Tasks.${hasConfiguredUser ? ` IMPORTANT: When users say "me" or "assign to me", use "me" as the assignee_id value - it automatically resolves to the configured user ID ${config.PRODUCTIVE_USER_ID}.` : ' No user configured - set PRODUCTIVE_USER_ID to enable "me" context.'} Use the 'whoami' tool to check current user context.`,
     },
     {
