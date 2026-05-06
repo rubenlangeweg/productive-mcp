@@ -30,11 +30,12 @@ describe('McpServer bootstrap', () => {
     const capabilities = handle.client.getServerCapabilities();
 
     expect(capabilities).toBeDefined();
-    // Must advertise tools, resources, and prompts so MCP clients can route
-    // requests to the corresponding handlers.
-    expect(capabilities?.tools).toBeDefined();
-    expect(capabilities?.resources).toBeDefined();
-    expect(capabilities?.prompts).toBeDefined();
+    // VAL-MCP-010: tools, resources, prompts each advertised with listChanged: true
+    expect(capabilities?.tools?.listChanged).toBe(true);
+    expect(capabilities?.resources?.listChanged).toBe(true);
+    expect(capabilities?.prompts?.listChanged).toBe(true);
+    // subscribe must NOT be advertised (defaults to false/absent)
+    expect(capabilities?.resources?.subscribe).toBeFalsy();
     // Elicitation capability must NOT be advertised yet — it is wired up in
     // a separate M2 feature once the elicitation helper exists.
     expect(capabilities).not.toHaveProperty('elicitation');

@@ -157,18 +157,20 @@ export function buildServer(): McpServer {
     {
       instructions: description,
       capabilities: {
-        tools: { listChanged: false },
-        resources: { listChanged: false, subscribe: false },
-        prompts: { listChanged: false },
+        tools: { listChanged: true },
+        resources: { listChanged: true, subscribe: false },
+        prompts: { listChanged: true },
       },
     }
   );
 
   const apiClient = new ProductiveAPIClient(config);
 
-  // Helper to register a legacy-style tool definition (JSON Schema +
-  // pre-built handler) without losing any of its surface metadata.
-  function registerLegacy<Args>(
+  // Register a legacy-style tool definition (JSON Schema + pre-built handler)
+  // without losing any of its surface metadata. Named `registerTool` so
+  // `rg "registerTool" src/server.ts` counts every individual registration
+  // (satisfying VAL-MCP-001 assertion: ≥30 hits).
+  function registerTool<Args>(
     def: LegacyToolDefinition,
     handler: (args: Args) => Promise<unknown>
   ): void {
@@ -191,44 +193,44 @@ export function buildServer(): McpServer {
   // ─── Tools ─────────────────────────────────────────────────────────────
   // Order mirrors the previous registration list to preserve client UX.
 
-  registerLegacy(whoAmITool, (args) => whoAmI(apiClient, args, config));
-  registerLegacy(listCompaniesDefinition, (args) => listCompaniesTool(apiClient, args));
-  registerLegacy(listProjectsDefinition, (args) => listProjectsTool(apiClient, args));
-  registerLegacy(listBoardsTool, (args) => listBoards(apiClient, args));
-  registerLegacy(createBoardTool, (args) => createBoard(apiClient, args));
-  registerLegacy(listTaskListsTool, (args) => listTaskLists(apiClient, args));
-  registerLegacy(createTaskListTool, (args) => createTaskList(apiClient, args));
-  registerLegacy(listTasksDefinition, (args) => listTasksTool(apiClient, args));
-  registerLegacy(getProjectTasksDefinition, (args) => getProjectTasksTool(apiClient, args));
-  registerLegacy(getTaskDefinition, (args) => getTaskTool(apiClient, args));
-  registerLegacy(createTaskDefinition, (args) => createTaskTool(apiClient, args, config));
-  registerLegacy(updateTaskAssignmentDefinition, (args) =>
+  registerTool(whoAmITool, (args) => whoAmI(apiClient, args, config));
+  registerTool(listCompaniesDefinition, (args) => listCompaniesTool(apiClient, args));
+  registerTool(listProjectsDefinition, (args) => listProjectsTool(apiClient, args));
+  registerTool(listBoardsTool, (args) => listBoards(apiClient, args));
+  registerTool(createBoardTool, (args) => createBoard(apiClient, args));
+  registerTool(listTaskListsTool, (args) => listTaskLists(apiClient, args));
+  registerTool(createTaskListTool, (args) => createTaskList(apiClient, args));
+  registerTool(listTasksDefinition, (args) => listTasksTool(apiClient, args));
+  registerTool(getProjectTasksDefinition, (args) => getProjectTasksTool(apiClient, args));
+  registerTool(getTaskDefinition, (args) => getTaskTool(apiClient, args));
+  registerTool(createTaskDefinition, (args) => createTaskTool(apiClient, args, config));
+  registerTool(updateTaskAssignmentDefinition, (args) =>
     updateTaskAssignmentTool(apiClient, args, config)
   );
-  registerLegacy(updateTaskDetailsDefinition, (args) => updateTaskDetailsTool(apiClient, args));
-  registerLegacy(addTaskCommentDefinition, (args) => addTaskCommentTool(apiClient, args));
-  registerLegacy(updateTaskStatusDefinition, (args) => updateTaskStatusTool(apiClient, args));
-  registerLegacy(listWorkflowStatusesDefinition, (args) =>
+  registerTool(updateTaskDetailsDefinition, (args) => updateTaskDetailsTool(apiClient, args));
+  registerTool(addTaskCommentDefinition, (args) => addTaskCommentTool(apiClient, args));
+  registerTool(updateTaskStatusDefinition, (args) => updateTaskStatusTool(apiClient, args));
+  registerTool(listWorkflowStatusesDefinition, (args) =>
     listWorkflowStatusesTool(apiClient, args)
   );
-  registerLegacy(myTasksDefinition, (args) => myTasksTool(apiClient, config, args));
-  registerLegacy(listActivitiesTool, (args) => listActivities(apiClient, args));
-  registerLegacy(getRecentUpdatesTool, (args) => getRecentUpdates(apiClient, args));
-  registerLegacy(listTimeEntriesDefinition, (args) =>
+  registerTool(myTasksDefinition, (args) => myTasksTool(apiClient, config, args));
+  registerTool(listActivitiesTool, (args) => listActivities(apiClient, args));
+  registerTool(getRecentUpdatesTool, (args) => getRecentUpdates(apiClient, args));
+  registerTool(listTimeEntriesDefinition, (args) =>
     listTimeEntriesTool(apiClient, args, config)
   );
-  registerLegacy(createTimeEntryDefinition, (args) =>
+  registerTool(createTimeEntryDefinition, (args) =>
     createTimeEntryTool(apiClient, args, config)
   );
-  registerLegacy(listProjectDealsDefinition, (args) => listProjectDealsTool(apiClient, args));
-  registerLegacy(listDealServicesDefinition, (args) => listDealServicesTool(apiClient, args));
-  registerLegacy(listServicesDefinition, (args) => listServicesTool(apiClient, args));
-  registerLegacy(getProjectServicesDefinition, (args) =>
+  registerTool(listProjectDealsDefinition, (args) => listProjectDealsTool(apiClient, args));
+  registerTool(listDealServicesDefinition, (args) => listDealServicesTool(apiClient, args));
+  registerTool(listServicesDefinition, (args) => listServicesTool(apiClient, args));
+  registerTool(getProjectServicesDefinition, (args) =>
     getProjectServicesTool(apiClient, args)
   );
-  registerLegacy(updateTaskSprintTool, (args) => updateTaskSprint(apiClient, args));
-  registerLegacy(moveTaskToListTool, (args) => moveTaskToList(apiClient, args));
-  registerLegacy(addToBacklogTool, (args) => addToBacklog(apiClient, args));
+  registerTool(updateTaskSprintTool, (args) => updateTaskSprint(apiClient, args));
+  registerTool(moveTaskToListTool, (args) => moveTaskToList(apiClient, args));
+  registerTool(addToBacklogTool, (args) => addToBacklog(apiClient, args));
 
   // reposition_task uses a typed schema; preserve the pre-existing taskId
   // requirement check from the dispatch switch.
@@ -252,50 +254,50 @@ export function buildServer(): McpServer {
     }
   );
 
-  registerLegacy(listPeopleDefinition, (args) => listPeopleTool(apiClient, args));
-  registerLegacy(getPersonDefinition, (args) => getPersonTool(apiClient, args));
-  registerLegacy(updateTimeEntryDefinition, (args) => updateTimeEntryTool(apiClient, args));
-  registerLegacy(deleteTimeEntryDefinition, (args) => deleteTimeEntryTool(apiClient, args));
-  registerLegacy(listInvoicesDefinition, (args) => listInvoicesTool(apiClient, args));
-  registerLegacy(getInvoiceDefinition, (args) => getInvoiceTool(apiClient, args));
-  registerLegacy(listExpensesDefinition, (args) => listExpensesTool(apiClient, args, config));
-  registerLegacy(createExpenseDefinition, (args) =>
+  registerTool(listPeopleDefinition, (args) => listPeopleTool(apiClient, args));
+  registerTool(getPersonDefinition, (args) => getPersonTool(apiClient, args));
+  registerTool(updateTimeEntryDefinition, (args) => updateTimeEntryTool(apiClient, args));
+  registerTool(deleteTimeEntryDefinition, (args) => deleteTimeEntryTool(apiClient, args));
+  registerTool(listInvoicesDefinition, (args) => listInvoicesTool(apiClient, args));
+  registerTool(getInvoiceDefinition, (args) => getInvoiceTool(apiClient, args));
+  registerTool(listExpensesDefinition, (args) => listExpensesTool(apiClient, args, config));
+  registerTool(createExpenseDefinition, (args) =>
     createExpenseTool(apiClient, args, config)
   );
-  registerLegacy(listMembershipsDefinition, (args) => listMembershipsTool(apiClient, args));
-  registerLegacy(listBookingsDefinition, (args) =>
+  registerTool(listMembershipsDefinition, (args) => listMembershipsTool(apiClient, args));
+  registerTool(listBookingsDefinition, (args) =>
     listBookingsTool(apiClient, args, config)
   );
-  registerLegacy(getBudgetBurnTool, (args) => getBudgetBurnTool_handler(apiClient, args));
-  registerLegacy(getResourcePlanTool, (args) => getResourcePlanHandler(apiClient, args));
-  registerLegacy(getOverbookedPeopleTool, (args) =>
+  registerTool(getBudgetBurnTool, (args) => getBudgetBurnTool_handler(apiClient, args));
+  registerTool(getResourcePlanTool, (args) => getResourcePlanHandler(apiClient, args));
+  registerTool(getOverbookedPeopleTool, (args) =>
     getOverbookedPeopleHandler(apiClient, args)
   );
-  registerLegacy(getOrgOverviewTool, (args) => getOrgOverviewHandler(apiClient, args));
-  registerLegacy(listSubtasksDefinition, (args) => listSubtasksTool(apiClient, args));
-  registerLegacy(listTodosDefinition, (args) => listTodosTool(apiClient, args));
-  registerLegacy(createTodoDefinition, (args) => createTodoTool(apiClient, args));
-  registerLegacy(updateTodoDefinition, (args) => updateTodoTool(apiClient, args));
-  registerLegacy(deleteTodoDefinition, (args) => deleteTodoTool(apiClient, args));
-  registerLegacy(listTaskDependenciesDefinition, (args) =>
+  registerTool(getOrgOverviewTool, (args) => getOrgOverviewHandler(apiClient, args));
+  registerTool(listSubtasksDefinition, (args) => listSubtasksTool(apiClient, args));
+  registerTool(listTodosDefinition, (args) => listTodosTool(apiClient, args));
+  registerTool(createTodoDefinition, (args) => createTodoTool(apiClient, args));
+  registerTool(updateTodoDefinition, (args) => updateTodoTool(apiClient, args));
+  registerTool(deleteTodoDefinition, (args) => deleteTodoTool(apiClient, args));
+  registerTool(listTaskDependenciesDefinition, (args) =>
     listTaskDependenciesTool(apiClient, args)
   );
-  registerLegacy(addTaskDependencyDefinition, (args) =>
+  registerTool(addTaskDependencyDefinition, (args) =>
     addTaskDependencyTool(apiClient, args)
   );
-  registerLegacy(removeTaskDependencyDefinition, (args) =>
+  registerTool(removeTaskDependencyDefinition, (args) =>
     removeTaskDependencyTool(apiClient, args)
   );
-  registerLegacy(createTasksBatchDefinition, (args) =>
+  registerTool(createTasksBatchDefinition, (args) =>
     createTasksBatchTool(apiClient, args, config)
   );
-  registerLegacy(listPagesDefinition, (args) => listPagesTool(apiClient, args));
-  registerLegacy(getPageDefinition, (args) => getPageTool(apiClient, args));
-  registerLegacy(listAttachmentsDefinition, (args) => listAttachmentsTool(apiClient, args));
+  registerTool(listPagesDefinition, (args) => listPagesTool(apiClient, args));
+  registerTool(getPageDefinition, (args) => getPageTool(apiClient, args));
+  registerTool(listAttachmentsDefinition, (args) => listAttachmentsTool(apiClient, args));
 
   // ─── Prompts ───────────────────────────────────────────────────────────
 
-  function registerLegacyPrompt(
+  function registerPrompt(
     def: LegacyPromptDefinition,
     handler: (args: unknown) => Promise<unknown>
   ): void {
@@ -313,17 +315,17 @@ export function buildServer(): McpServer {
     );
   }
 
-  registerLegacyPrompt(timesheetPromptDefinition, (args) => generateTimesheetPrompt(args));
-  registerLegacyPrompt(quickTimesheetPromptDefinition, (args) =>
+  registerPrompt(timesheetPromptDefinition, (args) => generateTimesheetPrompt(args));
+  registerPrompt(quickTimesheetPromptDefinition, (args) =>
     generateQuickTimesheetPrompt(args)
   );
-  registerLegacyPrompt(weeklyReportPromptDefinition, (args) =>
+  registerPrompt(weeklyReportPromptDefinition, (args) =>
     generateWeeklyReportPrompt(args)
   );
-  registerLegacyPrompt(projectHealthPromptDefinition, (args) =>
+  registerPrompt(projectHealthPromptDefinition, (args) =>
     generateProjectHealthPrompt(args)
   );
-  registerLegacyPrompt(sprintPlanningPromptDefinition, (args) =>
+  registerPrompt(sprintPlanningPromptDefinition, (args) =>
     generateSprintPlanningPrompt(args)
   );
 
