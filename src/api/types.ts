@@ -217,6 +217,7 @@ export interface ProductiveTaskUpdate {
       description?: string;
       due_date?: string;
       status?: number;
+      workflow_status_id?: number;
       custom_fields?: Record<string, any>;
     };
     relationships?: {
@@ -225,12 +226,6 @@ export interface ProductiveTaskUpdate {
           id: string;
           type: 'people';
         } | null;
-      };
-      workflow_status?: {
-        data: {
-          id: string;
-          type: 'workflow_statuses';
-        };
       };
       task_list?: {
         data: {

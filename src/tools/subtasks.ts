@@ -77,8 +77,8 @@ export const listSubtasksDefinition = {
 const createSubtaskSchema = z.object({
   parent_task_id: z.string().min(1, 'Parent task ID is required'),
   title: z.string().min(1, 'Title is required'),
-  project_id: z.string().optional(),
-  task_list_id: z.string().optional(),
+  project_id: z.string().min(1, 'Project ID is required'),
+  task_list_id: z.string().min(1, 'Task list ID is required'),
   assignee_id: z.string().optional(),
   due_date: z.string().optional(),
   description: z.string().optional(),
@@ -180,12 +180,12 @@ export const createSubtaskDefinition = {
     properties: {
       parent_task_id: { type: 'string', description: 'The ID of the parent task' },
       title: { type: 'string', description: 'Subtask title' },
-      project_id: { type: 'string', description: 'Optional project ID for the subtask' },
-      task_list_id: { type: 'string', description: 'Optional task list ID for the subtask' },
+      project_id: { type: 'string', description: 'Project ID for the subtask (required by API)' },
+      task_list_id: { type: 'string', description: 'Task list ID for the subtask (required by API)' },
       assignee_id: { type: 'string', description: 'Optional assignee ID. Use "me" for the configured user.' },
       due_date: { type: 'string', description: 'Optional due date in YYYY-MM-DD format' },
       description: { type: 'string', description: 'Optional subtask description' },
     },
-    required: ['parent_task_id', 'title'],
+    required: ['parent_task_id', 'title', 'project_id', 'task_list_id'],
   },
 };

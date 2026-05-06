@@ -205,22 +205,10 @@ export interface ProductiveExpenseCreate {
       date: string;
       amount: number;
       currency: string;
+      person_id: number;
+      service_id: number;
       note?: string;
       billable?: boolean;
-    };
-    relationships: {
-      person: {
-        data: {
-          id: string;
-          type: 'people';
-        };
-      };
-      service: {
-        data: {
-          id: string;
-          type: 'services';
-        };
-      };
     };
   };
 }

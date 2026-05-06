@@ -98,13 +98,8 @@ export async function updateTaskStatusTool(
       data: {
         type: 'tasks',
         id: params.task_id,
-        relationships: {
-          workflow_status: {
-            data: {
-              id: workflowStatusId,
-              type: 'workflow_statuses',
-            },
-          },
+        attributes: {
+          workflow_status_id: parseInt(workflowStatusId, 10),
         },
       },
     };

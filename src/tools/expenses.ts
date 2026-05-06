@@ -111,10 +111,8 @@ export async function createExpenseTool(
           currency: params.currency,
           note: params.note,
           billable: params.billable,
-        },
-        relationships: {
-          person: { data: { id: personId, type: 'people' } },
-          service: { data: { id: params.service_id, type: 'services' } },
+          person_id: parseInt(personId, 10),
+          service_id: parseInt(params.service_id, 10),
         },
       },
     };

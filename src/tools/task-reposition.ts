@@ -3,18 +3,18 @@ import type { ProductiveAPIClient } from '../api/client.js';
 import type { TaskReposition } from '../api/types.js';
 
 export const taskRepositionSchema = z.object({
-  taskId: z.string().describe('The ID of the task to reposition'),
+  task_id: z.string().describe('The ID of the task to reposition'),
   move_before_id: z.string().optional().describe('Position the task before this task ID'),
   move_after_id: z.string().optional().describe('Position the task after this task ID'),
-  moveToTop: z.boolean().optional().describe('Move the task to the top of its list'),
-  moveToBottom: z.boolean().optional().describe('Move the task to the bottom of its list'),
+  move_to_top: z.boolean().optional().describe('Move the task to the top of its list'),
+  move_to_bottom: z.boolean().optional().describe('Move the task to the bottom of its list'),
 });
 
 export const repositionTask = async (
-  apiClient: ProductiveAPIClient, 
+  apiClient: ProductiveAPIClient,
   data: z.infer<typeof taskRepositionSchema>
 ) => {
-  const { taskId, move_before_id, move_after_id, moveToTop, moveToBottom } = data;
+  const { task_id: taskId, move_before_id, move_after_id, move_to_top: moveToTop, move_to_bottom: moveToBottom } = data;
 
   // Get the current task to determine its task list
   const currentTask = await apiClient.getTask(taskId);
@@ -126,7 +126,7 @@ export const taskRepositionDefinition = {
   inputSchema: {
     type: 'object',
     properties: {
-      taskId: {
+      task_id: {
         type: 'string',
         description: 'The ID of the task to reposition'
       },
@@ -138,16 +138,16 @@ export const taskRepositionDefinition = {
         type: 'string',
         description: 'Position the task after this task ID'
       },
-      moveToTop: {
+      move_to_top: {
         type: 'boolean',
         description: 'Move the task to the top of its list'
       },
-      moveToBottom: {
+      move_to_bottom: {
         type: 'boolean',
         description: 'Move the task to the bottom of its list'
       }
     },
-    required: ['taskId']
+    required: ['task_id']
   }
 };
 
@@ -160,9 +160,9 @@ export const taskRepositionTool = async (apiClient: ProductiveAPIClient, args: z
     return {
       content: [{
         type: 'text',
-        text: `Task ${args.taskId} repositioned successfully.
-The task has been moved ${args.moveToTop ? 'to the top of the list' :
-                           args.moveToBottom ? 'to the bottom of the list' :
+        text: `Task ${args.task_id} repositioned successfully.
+The task has been moved ${args.move_to_top ? 'to the top of the list' :
+                           args.move_to_bottom ? 'to the bottom of the list' :
                            args.move_before_id ? `before task ${args.move_before_id}` :
                            args.move_after_id ? `after task ${args.move_after_id}` :
                            'to a new position'}.`,
