@@ -64,8 +64,8 @@ export async function getOrgOverviewHandler(
     if (projects.length > 20) lines.push(`- … and ${projects.length - 20} more`);
 
     return { content: [{ type: 'text', text: lines.join('\n') }] };
-  } catch (err: any) {
-    return { content: [{ type: 'text', text: `Error fetching org overview: ${err.message}` }] };
+  } catch (err: unknown) {
+    throw err;
   }
 }
 

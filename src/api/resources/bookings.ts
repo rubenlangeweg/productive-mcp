@@ -49,8 +49,9 @@ export async function listBookingsWithIncludedAllPages(
   params?: { after?: string; before?: string; person_id?: string }
 ): Promise<{ bookings: JsonApiEntity[]; included: JsonApiEntity[] }> {
   const qs = new URLSearchParams();
-  appendFilter(qs, 'after', params?.after);
-  appendFilter(qs, 'before', params?.before);
+  // Translate unified `after`/`before` to Productive's resource-specific filter keys.
+  if (params?.after) qs.append('filter[started_on_after]', params.after);
+  if (params?.before) qs.append('filter[started_on_before]', params.before);
   appendFilter(qs, 'person_id', params?.person_id);
   qs.set('include', 'person,service.deal.project');
   qs.set('page[size]', '200');

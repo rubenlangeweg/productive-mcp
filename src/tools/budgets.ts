@@ -89,7 +89,7 @@ export async function getBudgetBurnTool_handler(
     lines.push(...shown);
 
     return { content: [{ type: 'text', text: lines.join('\n') }] };
-  } catch (err: any) {
-    return { content: [{ type: 'text', text: `Error fetching budget data: ${err.message}` }] };
+  } catch (err: unknown) {
+    throw err;
   }
 }
