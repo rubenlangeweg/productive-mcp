@@ -223,11 +223,11 @@ export async function addCommentReactionTool(
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
   try {
     const params = reactionSchema.parse(args);
-    const response = await client.addCommentReaction(params.comment_id, params.reaction);
+    await client.addCommentReaction(params.comment_id, params.reaction);
     return {
       content: [{
         type: 'text',
-        text: `Reaction "${params.reaction}" added to comment ${params.comment_id} (reaction ID: ${response.data.id}).`,
+        text: `Reaction "${params.reaction}" added to comment ${params.comment_id}.`,
       }],
     };
   } catch (error) {

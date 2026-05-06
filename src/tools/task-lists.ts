@@ -273,9 +273,9 @@ export async function archiveTaskList(
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
   try {
     const params = taskListIdOnlySchema.parse(args);
-    await client.archiveTaskList(params.task_list_id);
+    const response = await client.archiveTaskList(params.task_list_id);
     return {
-      content: [{ type: 'text', text: `Task list ${params.task_list_id} archived. Use restore_task_list to bring it back.` }],
+      content: [{ type: 'text', text: `Task list ${response.data.id} archived. Use restore_task_list to bring it back.` }],
     };
   } catch (error) {
     handleTaskListError(error);

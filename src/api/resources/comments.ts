@@ -77,20 +77,15 @@ export function addCommentReaction(
   request: Requester,
   commentId: string,
   reaction: string
-): Promise<ProductiveSingleResponse<{ id: string; type: string; attributes: Record<string, unknown> }>> {
-  return request<ProductiveSingleResponse<{ id: string; type: string; attributes: Record<string, unknown> }>>(
-    'reactions',
+): Promise<ProductiveSingleResponse<ProductiveComment>> {
+  return request<ProductiveSingleResponse<ProductiveComment>>(
+    `comments/${commentId}/add_reaction`,
     {
-      method: 'POST',
+      method: 'PATCH',
       body: JSON.stringify({
         data: {
-          type: 'reactions',
+          type: 'comments',
           attributes: { reaction },
-          relationships: {
-            comment: {
-              data: { id: commentId, type: 'comments' },
-            },
-          },
         },
       }),
     }

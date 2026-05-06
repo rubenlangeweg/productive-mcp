@@ -234,7 +234,7 @@ export class ProductiveAPIClient {
   ): Promise<ProductiveSingleResponse<ProductiveTaskList>> {
     return taskLists.updateTaskList(this.request, taskListId, attrs);
   }
-  archiveTaskList(taskListId: string): Promise<void> {
+  archiveTaskList(taskListId: string): Promise<ProductiveSingleResponse<ProductiveTaskList>> {
     return taskLists.archiveTaskList(this.request, taskListId);
   }
   restoreTaskList(
@@ -304,7 +304,7 @@ export class ProductiveAPIClient {
   addCommentReaction(
     commentId: string,
     reaction: string
-  ): Promise<ProductiveSingleResponse<{ id: string; type: string; attributes: Record<string, unknown> }>> {
+  ): Promise<ProductiveSingleResponse<ProductiveComment>> {
     return comments.addCommentReaction(this.request, commentId, reaction);
   }
 

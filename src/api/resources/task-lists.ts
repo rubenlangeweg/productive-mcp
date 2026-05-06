@@ -63,8 +63,11 @@ export function updateTaskList(
 export function archiveTaskList(
   request: Requester,
   taskListId: string
-): Promise<void> {
-  return request<void>(`task_lists/${taskListId}`, { method: 'DELETE' });
+): Promise<ProductiveSingleResponse<ProductiveTaskList>> {
+  return request<ProductiveSingleResponse<ProductiveTaskList>>(
+    `task_lists/${taskListId}/archive`,
+    { method: 'PATCH' }
+  );
 }
 
 export function restoreTaskList(
@@ -73,7 +76,7 @@ export function restoreTaskList(
 ): Promise<ProductiveSingleResponse<ProductiveTaskList>> {
   return request<ProductiveSingleResponse<ProductiveTaskList>>(
     `task_lists/${taskListId}/restore`,
-    { method: 'POST' }
+    { method: 'PATCH' }
   );
 }
 
@@ -85,7 +88,7 @@ export function repositionTaskList(
   return request<ProductiveSingleResponse<ProductiveTaskList>>(
     `task_lists/${taskListId}/reposition`,
     {
-      method: 'POST',
+      method: 'PATCH',
       body: JSON.stringify({
         data: { type: 'task_lists', id: taskListId, attributes: attrs },
       }),
