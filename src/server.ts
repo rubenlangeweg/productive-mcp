@@ -1,12 +1,14 @@
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { CallToolRequestSchema, ListToolsRequestSchema, ListPromptsRequestSchema, GetPromptRequestSchema, ListResourcesRequestSchema, ReadResourceRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve as resolvePath } from 'node:path';
 import { getConfig } from './config/index.js';
 import { ProductiveAPIClient } from './api/client.js';
+import { jsonSchemaToZodShape } from './server/json-schema-to-zod.js';
 import { listProjectsTool, listProjectsDefinition } from './tools/projects.js';
 import { listTasksTool, getProjectTasksTool, getTaskTool, createTaskTool, updateTaskAssignmentTool, updateTaskDetailsTool, listTasksDefinition, getProjectTasksDefinition, getTaskDefinition, createTaskDefinition, updateTaskAssignmentDefinition, updateTaskDetailsDefinition } from './tools/tasks.js';
 import { listCompaniesTool, listCompaniesDefinition } from './tools/companies.js';
@@ -80,342 +82,307 @@ function readServerVersion(): string {
 
 export const SERVER_VERSION = readServerVersion();
 
-export async function createServer() {
-  // Initialize API client and config early to check user context
+interface LegacyToolDefinition {
+  name: string;
+  description: string;
+  annotations?: Record<string, unknown>;
+  inputSchema: Record<string, unknown>;
+}
+
+interface LegacyPromptArgument {
+  name: string;
+  description?: string;
+  required?: boolean;
+}
+
+interface LegacyPromptDefinition {
+  name: string;
+  description: string;
+  arguments?: LegacyPromptArgument[];
+}
+
+/**
+ * Translate a legacy prompt definition's `arguments` array into the Zod raw
+ * shape `McpServer.registerPrompt` consumes for `argsSchema`. Every argument
+ * is a string (matching the prior dispatch behaviour); `required: false`
+ * arguments map to `.optional()` schemas so the SDK validates correctly.
+ */
+function legacyPromptArgsSchema(
+  args: LegacyPromptArgument[] | undefined
+): Record<string, z.ZodTypeAny> {
+  const shape: Record<string, z.ZodTypeAny> = {};
+  for (const arg of args ?? []) {
+    let schema: z.ZodTypeAny = z.string();
+    if (arg.description) schema = schema.describe(arg.description);
+    if (arg.required !== true) schema = schema.optional();
+    shape[arg.name] = schema;
+  }
+  return shape;
+}
+
+function annotationsWithTitle(
+  def: LegacyToolDefinition,
+  title: string
+): Record<string, unknown> {
+  return { ...(def.annotations ?? {}), title };
+}
+
+/**
+ * Build a fully-wired MCP server using the high-level `McpServer` API
+ * without attaching it to a transport.
+ *
+ * Each tool, prompt, and resource is registered explicitly; the SDK derives
+ * `tools/list`, `prompts/list`, and `resources/list` payloads automatically
+ * (no manual dispatch switch required).
+ *
+ * Tests use this builder to drive registrations through an in-memory
+ * transport without colliding with the stdio runtime.
+ */
+export function buildServer(): McpServer {
   const config = getConfig();
   const hasConfiguredUser = !!config.PRODUCTIVE_USER_ID;
 
-  const server = new Server(
+  const description =
+    `MCP server for Productive.io API integration. Productive has a hierarchical structure: Customers → Projects → Boards → Task Lists → Tasks.` +
+    (hasConfiguredUser
+      ? ` IMPORTANT: When users say "me" or "assign to me", use "me" as the assignee_id value - it automatically resolves to the configured user ID ${config.PRODUCTIVE_USER_ID}.`
+      : ' No user configured - set PRODUCTIVE_USER_ID to enable "me" context.') +
+    " Use the 'whoami' tool to check current user context.";
+
+  const mcp = new McpServer(
     {
       name: 'productive-mcp',
       version: SERVER_VERSION,
-      description: `MCP server for Productive.io API integration. Productive has a hierarchical structure: Customers → Projects → Boards → Task Lists → Tasks.${hasConfiguredUser ? ` IMPORTANT: When users say "me" or "assign to me", use "me" as the assignee_id value - it automatically resolves to the configured user ID ${config.PRODUCTIVE_USER_ID}.` : ' No user configured - set PRODUCTIVE_USER_ID to enable "me" context.'} Use the 'whoami' tool to check current user context.`,
     },
     {
+      instructions: description,
       capabilities: {
-        tools: {},
-        prompts: {},
-        resources: {},
+        tools: { listChanged: false },
+        resources: { listChanged: false, subscribe: false },
+        prompts: { listChanged: false },
       },
     }
   );
+
   const apiClient = new ProductiveAPIClient(config);
-  
-  // Register handlers
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: [
-      whoAmITool,
-      listCompaniesDefinition,
-      listProjectsDefinition,
-      listBoardsTool,
-      createBoardTool,
-      listTaskListsTool,
-      createTaskListTool,
-      listTasksDefinition,
-      getProjectTasksDefinition,
-      getTaskDefinition,
-      createTaskDefinition,
-      updateTaskAssignmentDefinition,
-      updateTaskDetailsDefinition,
-      addTaskCommentDefinition,
-      updateTaskStatusDefinition,
-      listWorkflowStatusesDefinition,
-      myTasksDefinition,
-      listActivitiesTool,
-      getRecentUpdatesTool,
-      listTimeEntriesDefinition,
-      createTimeEntryDefinition,
-      listProjectDealsDefinition,
-      listDealServicesDefinition,
-      listServicesDefinition,
-      getProjectServicesDefinition,
-      updateTaskSprintTool,
-      moveTaskToListTool,
-      addToBacklogTool,
-      taskRepositionDefinition,
-      // People
-      listPeopleDefinition,
-      getPersonDefinition,
-      // Time entry management
-      updateTimeEntryDefinition,
-      deleteTimeEntryDefinition,
-      // Invoices
-      listInvoicesDefinition,
-      getInvoiceDefinition,
-      // Expenses
-      listExpensesDefinition,
-      createExpenseDefinition,
-      // Project memberships
-      listMembershipsDefinition,
-      // Bookings / capacity planning
-      listBookingsDefinition,
-      // Budget & Org Tools
-      getBudgetBurnTool,
-      getResourcePlanTool,
-      getOverbookedPeopleTool,
-      getOrgOverviewTool,
-      // Subtasks
-      listSubtasksDefinition,
-      // Todos / checklists
-      listTodosDefinition,
-      createTodoDefinition,
-      updateTodoDefinition,
-      deleteTodoDefinition,
-      // Task dependencies
-      listTaskDependenciesDefinition,
-      addTaskDependencyDefinition,
-      removeTaskDependencyDefinition,
-      // Batch operations
-      createTasksBatchDefinition,
-      // Pages / knowledge base
-      listPagesDefinition,
-      getPageDefinition,
-      // Attachments
-      listAttachmentsDefinition,
-    ],
-  }));
-  
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    const { name, arguments: args } = request.params;
-    
-    switch (name) {
-      case 'whoami':
-        return await whoAmI(apiClient, args, config);
-        
-      case 'list_companies':
-        return await listCompaniesTool(apiClient, args);
-        
-      case 'list_projects':
-        return await listProjectsTool(apiClient, args);
-        
-      case 'list_tasks':
-        return await listTasksTool(apiClient, args);
-        
-      case 'get_project_tasks':
-        return await getProjectTasksTool(apiClient, args);
-        
-      case 'get_task':
-        return await getTaskTool(apiClient, args);
-        
-      case 'my_tasks':
-        return await myTasksTool(apiClient, config, args);
-        
-      case 'list_boards':
-        return await listBoards(apiClient, args);
-        
-      case 'create_board':
-        return await createBoard(apiClient, args);
-        
-      case 'create_task':
-        return await createTaskTool(apiClient, args, config);
-        
-      case 'update_task_assignment':
-        return await updateTaskAssignmentTool(apiClient, args, config);
-        
-      case 'update_task_details':
-        return await updateTaskDetailsTool(apiClient, args);
-        
-      case 'add_task_comment':
-        return await addTaskCommentTool(apiClient, args);
-        
-      case 'update_task_status':
-        return await updateTaskStatusTool(apiClient, args);
-        
-      case 'list_workflow_statuses':
-        return await listWorkflowStatusesTool(apiClient, args);
-        
-      case 'list_task_lists':
-        return await listTaskLists(apiClient, args);
-        
-      case 'create_task_list':
-        return await createTaskList(apiClient, args);
-        
-      case 'list_activities':
-        return await listActivities(apiClient, args);
-        
-      case 'get_recent_updates':
-        return await getRecentUpdates(apiClient, args);
-        
-      case 'list_time_entries':
-        return await listTimeEntriesTool(apiClient, args, config);
-        
-      case 'create_time_entry':
-        return await createTimeEntryTool(apiClient, args, config);
-        
-      case 'list_project_deals':
-        return await listProjectDealsTool(apiClient, args);
-        
-      case 'list_deal_services':
-        return await listDealServicesTool(apiClient, args);
-        
-      case 'list_services':
-        return await listServicesTool(apiClient, args);
-        
-      case 'get_project_services':
-        return await getProjectServicesTool(apiClient, args);
-        
-      case 'update_task_sprint':
-        return await updateTaskSprint(apiClient, args);
-        
-      case 'move_task_to_list':
-        return await moveTaskToList(apiClient, args);
-        
-      case 'add_to_backlog':
-        return await addToBacklog(apiClient, args);
-        
-      case 'reposition_task':
-        // Ensure args has the required taskId property
-        if (!args?.taskId) {
-          throw new Error('taskId is required for task repositioning');
-        }
-        return await taskRepositionTool(apiClient, args as z.infer<typeof taskRepositionSchema>);
-      // People
-      case 'list_people':
-        return await listPeopleTool(apiClient, args);
 
-      case 'get_person':
-        return await getPersonTool(apiClient, args);
+  // Helper to register a legacy-style tool definition (JSON Schema +
+  // pre-built handler) without losing any of its surface metadata.
+  function registerLegacy<Args>(
+    def: LegacyToolDefinition,
+    handler: (args: Args) => Promise<unknown>
+  ): void {
+    mcp.registerTool(
+      def.name,
+      {
+        title: def.name,
+        description: def.description,
+        annotations: annotationsWithTitle(def, def.name),
+        inputSchema: jsonSchemaToZodShape(def.inputSchema),
+      },
+      async (args: unknown) => {
+        const result = await handler(args as Args);
+        // Tool handlers already return `{ content: [...] }` — pass through.
+        return result as CallToolResult;
+      }
+    );
+  }
 
-      // Time entry management
-      case 'update_time_entry':
-        return await updateTimeEntryTool(apiClient, args);
+  // ─── Tools ─────────────────────────────────────────────────────────────
+  // Order mirrors the previous registration list to preserve client UX.
 
-      case 'delete_time_entry':
-        return await deleteTimeEntryTool(apiClient, args);
+  registerLegacy(whoAmITool, (args) => whoAmI(apiClient, args, config));
+  registerLegacy(listCompaniesDefinition, (args) => listCompaniesTool(apiClient, args));
+  registerLegacy(listProjectsDefinition, (args) => listProjectsTool(apiClient, args));
+  registerLegacy(listBoardsTool, (args) => listBoards(apiClient, args));
+  registerLegacy(createBoardTool, (args) => createBoard(apiClient, args));
+  registerLegacy(listTaskListsTool, (args) => listTaskLists(apiClient, args));
+  registerLegacy(createTaskListTool, (args) => createTaskList(apiClient, args));
+  registerLegacy(listTasksDefinition, (args) => listTasksTool(apiClient, args));
+  registerLegacy(getProjectTasksDefinition, (args) => getProjectTasksTool(apiClient, args));
+  registerLegacy(getTaskDefinition, (args) => getTaskTool(apiClient, args));
+  registerLegacy(createTaskDefinition, (args) => createTaskTool(apiClient, args, config));
+  registerLegacy(updateTaskAssignmentDefinition, (args) =>
+    updateTaskAssignmentTool(apiClient, args, config)
+  );
+  registerLegacy(updateTaskDetailsDefinition, (args) => updateTaskDetailsTool(apiClient, args));
+  registerLegacy(addTaskCommentDefinition, (args) => addTaskCommentTool(apiClient, args));
+  registerLegacy(updateTaskStatusDefinition, (args) => updateTaskStatusTool(apiClient, args));
+  registerLegacy(listWorkflowStatusesDefinition, (args) =>
+    listWorkflowStatusesTool(apiClient, args)
+  );
+  registerLegacy(myTasksDefinition, (args) => myTasksTool(apiClient, config, args));
+  registerLegacy(listActivitiesTool, (args) => listActivities(apiClient, args));
+  registerLegacy(getRecentUpdatesTool, (args) => getRecentUpdates(apiClient, args));
+  registerLegacy(listTimeEntriesDefinition, (args) =>
+    listTimeEntriesTool(apiClient, args, config)
+  );
+  registerLegacy(createTimeEntryDefinition, (args) =>
+    createTimeEntryTool(apiClient, args, config)
+  );
+  registerLegacy(listProjectDealsDefinition, (args) => listProjectDealsTool(apiClient, args));
+  registerLegacy(listDealServicesDefinition, (args) => listDealServicesTool(apiClient, args));
+  registerLegacy(listServicesDefinition, (args) => listServicesTool(apiClient, args));
+  registerLegacy(getProjectServicesDefinition, (args) =>
+    getProjectServicesTool(apiClient, args)
+  );
+  registerLegacy(updateTaskSprintTool, (args) => updateTaskSprint(apiClient, args));
+  registerLegacy(moveTaskToListTool, (args) => moveTaskToList(apiClient, args));
+  registerLegacy(addToBacklogTool, (args) => addToBacklog(apiClient, args));
 
-      // Invoices
-      case 'list_invoices':
-        return await listInvoicesTool(apiClient, args);
-
-      case 'get_invoice':
-        return await getInvoiceTool(apiClient, args);
-
-      // Expenses
-      case 'list_expenses':
-        return await listExpensesTool(apiClient, args, config);
-
-      case 'create_expense':
-        return await createExpenseTool(apiClient, args, config);
-
-      // Memberships
-      case 'list_memberships':
-        return await listMembershipsTool(apiClient, args);
-
-      // Bookings
-      case 'list_bookings':
-        return await listBookingsTool(apiClient, args, config);
-
-      // Budget & Org Tools
-      case 'get_budget_burn':
-        return await getBudgetBurnTool_handler(apiClient, args);
-
-      case 'get_resource_plan':
-        return await getResourcePlanHandler(apiClient, args);
-
-      case 'get_overbooked_people':
-        return await getOverbookedPeopleHandler(apiClient, args);
-
-      case 'get_org_overview':
-        return await getOrgOverviewHandler(apiClient, args);
-
-      // Subtasks
-      case 'list_subtasks':
-        return await listSubtasksTool(apiClient, args);
-
-      // Todos
-      case 'list_todos':
-        return await listTodosTool(apiClient, args);
-
-      case 'create_todo':
-        return await createTodoTool(apiClient, args);
-
-      case 'update_todo':
-        return await updateTodoTool(apiClient, args);
-
-      case 'delete_todo':
-        return await deleteTodoTool(apiClient, args);
-
-      // Task dependencies
-      case 'list_task_dependencies':
-        return await listTaskDependenciesTool(apiClient, args);
-
-      case 'add_task_dependency':
-        return await addTaskDependencyTool(apiClient, args);
-
-      case 'remove_task_dependency':
-        return await removeTaskDependencyTool(apiClient, args);
-
-      // Batch
-      case 'create_tasks_batch':
-        return await createTasksBatchTool(apiClient, args, config);
-
-      // Pages
-      case 'list_pages':
-        return await listPagesTool(apiClient, args);
-
-      case 'get_page':
-        return await getPageTool(apiClient, args);
-
-      // Attachments
-      case 'list_attachments':
-        return await listAttachmentsTool(apiClient, args);
-
-      default:
-        throw new Error(`Unknown tool: ${name}`);
+  // reposition_task uses a typed schema; preserve the pre-existing taskId
+  // requirement check from the dispatch switch.
+  mcp.registerTool(
+    taskRepositionDefinition.name,
+    {
+      title: taskRepositionDefinition.name,
+      description: taskRepositionDefinition.description,
+      annotations: annotationsWithTitle(taskRepositionDefinition, taskRepositionDefinition.name),
+      inputSchema: jsonSchemaToZodShape(taskRepositionDefinition.inputSchema),
+    },
+    async (args: unknown) => {
+      const a = args as { taskId?: string } | undefined;
+      if (!a?.taskId) {
+        throw new Error('taskId is required for task repositioning');
+      }
+      return (await taskRepositionTool(
+        apiClient,
+        args as z.infer<typeof taskRepositionSchema>
+      )) as CallToolResult;
     }
-  });
+  );
 
-  // Register resource handlers
-  server.setRequestHandler(ListResourcesRequestSchema, async () => ({
-    resources: listStaticResources(config),
-    resourceTemplates: listResourceTemplates(),
-  }));
+  registerLegacy(listPeopleDefinition, (args) => listPeopleTool(apiClient, args));
+  registerLegacy(getPersonDefinition, (args) => getPersonTool(apiClient, args));
+  registerLegacy(updateTimeEntryDefinition, (args) => updateTimeEntryTool(apiClient, args));
+  registerLegacy(deleteTimeEntryDefinition, (args) => deleteTimeEntryTool(apiClient, args));
+  registerLegacy(listInvoicesDefinition, (args) => listInvoicesTool(apiClient, args));
+  registerLegacy(getInvoiceDefinition, (args) => getInvoiceTool(apiClient, args));
+  registerLegacy(listExpensesDefinition, (args) => listExpensesTool(apiClient, args, config));
+  registerLegacy(createExpenseDefinition, (args) =>
+    createExpenseTool(apiClient, args, config)
+  );
+  registerLegacy(listMembershipsDefinition, (args) => listMembershipsTool(apiClient, args));
+  registerLegacy(listBookingsDefinition, (args) =>
+    listBookingsTool(apiClient, args, config)
+  );
+  registerLegacy(getBudgetBurnTool, (args) => getBudgetBurnTool_handler(apiClient, args));
+  registerLegacy(getResourcePlanTool, (args) => getResourcePlanHandler(apiClient, args));
+  registerLegacy(getOverbookedPeopleTool, (args) =>
+    getOverbookedPeopleHandler(apiClient, args)
+  );
+  registerLegacy(getOrgOverviewTool, (args) => getOrgOverviewHandler(apiClient, args));
+  registerLegacy(listSubtasksDefinition, (args) => listSubtasksTool(apiClient, args));
+  registerLegacy(listTodosDefinition, (args) => listTodosTool(apiClient, args));
+  registerLegacy(createTodoDefinition, (args) => createTodoTool(apiClient, args));
+  registerLegacy(updateTodoDefinition, (args) => updateTodoTool(apiClient, args));
+  registerLegacy(deleteTodoDefinition, (args) => deleteTodoTool(apiClient, args));
+  registerLegacy(listTaskDependenciesDefinition, (args) =>
+    listTaskDependenciesTool(apiClient, args)
+  );
+  registerLegacy(addTaskDependencyDefinition, (args) =>
+    addTaskDependencyTool(apiClient, args)
+  );
+  registerLegacy(removeTaskDependencyDefinition, (args) =>
+    removeTaskDependencyTool(apiClient, args)
+  );
+  registerLegacy(createTasksBatchDefinition, (args) =>
+    createTasksBatchTool(apiClient, args, config)
+  );
+  registerLegacy(listPagesDefinition, (args) => listPagesTool(apiClient, args));
+  registerLegacy(getPageDefinition, (args) => getPageTool(apiClient, args));
+  registerLegacy(listAttachmentsDefinition, (args) => listAttachmentsTool(apiClient, args));
 
-  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-    return await readResource(request.params.uri, apiClient, config);
-  });
+  // ─── Prompts ───────────────────────────────────────────────────────────
 
-  // Register prompt handlers
-  server.setRequestHandler(ListPromptsRequestSchema, async () => ({
-    prompts: [
-      timesheetPromptDefinition,
-      quickTimesheetPromptDefinition,
-      weeklyReportPromptDefinition,
-      projectHealthPromptDefinition,
-      sprintPlanningPromptDefinition,
-    ],
-  }));
+  function registerLegacyPrompt(
+    def: LegacyPromptDefinition,
+    handler: (args: unknown) => Promise<unknown>
+  ): void {
+    mcp.registerPrompt(
+      def.name,
+      {
+        title: def.name,
+        description: def.description,
+        argsSchema: legacyPromptArgsSchema(def.arguments),
+      },
+      async (args: unknown) => {
+        const result = await handler(args);
+        return result as Awaited<ReturnType<typeof generateTimesheetPrompt>>;
+      }
+    );
+  }
 
-  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
-    const { name, arguments: args } = request.params;
+  registerLegacyPrompt(timesheetPromptDefinition, (args) => generateTimesheetPrompt(args));
+  registerLegacyPrompt(quickTimesheetPromptDefinition, (args) =>
+    generateQuickTimesheetPrompt(args)
+  );
+  registerLegacyPrompt(weeklyReportPromptDefinition, (args) =>
+    generateWeeklyReportPrompt(args)
+  );
+  registerLegacyPrompt(projectHealthPromptDefinition, (args) =>
+    generateProjectHealthPrompt(args)
+  );
+  registerLegacyPrompt(sprintPlanningPromptDefinition, (args) =>
+    generateSprintPlanningPrompt(args)
+  );
 
-    switch (name) {
-      case 'timesheet_entry':
-        return await generateTimesheetPrompt(args);
+  // ─── Resources ────────────────────────────────────────────────────────
 
-      case 'timesheet_step':
-        return await generateQuickTimesheetPrompt(args);
+  for (const staticResource of listStaticResources(config)) {
+    mcp.registerResource(
+      staticResource.name,
+      staticResource.uri,
+      {
+        title: staticResource.name,
+        description: staticResource.description,
+        mimeType: staticResource.mimeType,
+      },
+      async (uri) => {
+        const result = await readResource(uri.toString(), apiClient, config);
+        return result;
+      }
+    );
+  }
 
-      case 'weekly_report':
-        return await generateWeeklyReportPrompt(args);
+  for (const template of listResourceTemplates()) {
+    // ResourceTemplate requires an explicit `list` callback; passing
+    // `undefined` advertises the template without an enumeration handler.
+    const resourceTemplate = new ResourceTemplate(template.uriTemplate, { list: undefined });
+    mcp.registerResource(
+      template.name,
+      resourceTemplate,
+      {
+        title: template.name,
+        description: template.description,
+        mimeType: template.mimeType,
+      },
+      async (uri) => {
+        const result = await readResource(uri.toString(), apiClient, config);
+        return result;
+      }
+    );
+  }
 
-      case 'project_health':
-        return await generateProjectHealthPrompt(args);
+  return mcp;
+}
 
-      case 'sprint_planning':
-        return await generateSprintPlanningPrompt(args);
-
-      default:
-        throw new Error(`Unknown prompt: ${name}`);
-    }
-  });
-  
-  // Connect to stdio transport
+/**
+ * Build the server and connect it to a `StdioServerTransport` for the
+ * production runtime. Returns the underlying low-level `Server` instance so
+ * legacy callers continue to work.
+ *
+ * Tests should use `buildServer()` directly and connect their own
+ * in-memory transport — connecting twice fails on the SDK's single-transport
+ * invariant.
+ */
+export async function createServer(): Promise<Server> {
+  const mcp = buildServer();
   const transport = new StdioServerTransport();
-  await server.connect(transport);
-  
-  // Don't output anything to stdout/stderr after connecting
-  // as it can interfere with the MCP protocol
-  
-  return server;
+  await mcp.connect(transport);
+
+  // Don't output anything to stdout/stderr after connecting — corrupts the
+  // MCP protocol on stdio transport.
+
+  return mcp.server;
 }
