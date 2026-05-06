@@ -297,8 +297,16 @@ export class ProductiveAPIClient {
     return this.makeRequest<ProductiveResponse<ProductivePerson>>(path);
   }
   
-  async getTask(taskId: string): Promise<ProductiveSingleResponse<ProductiveTask>> {
-    return this.makeRequest<ProductiveSingleResponse<ProductiveTask>>(`tasks/${taskId}`);
+  async getTask(
+    taskId: string,
+    options?: { include?: string }
+  ): Promise<ProductiveSingleResponse<ProductiveTask>> {
+    const qs = options?.include
+      ? `?include=${encodeURIComponent(options.include)}`
+      : '';
+    return this.makeRequest<ProductiveSingleResponse<ProductiveTask>>(
+      `tasks/${taskId}${qs}`
+    );
   }
 
   async updateTask(taskId: string, taskData: ProductiveTaskUpdate): Promise<ProductiveSingleResponse<ProductiveTask>> {

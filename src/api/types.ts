@@ -242,6 +242,8 @@ export interface ProductiveTaskUpdate {
 
 export interface ProductiveSingleResponse<T> {
   data: T;
+  included?: Array<{ id: string; type: string; attributes?: Record<string, unknown>; relationships?: Record<string, unknown>; [key: string]: unknown }>;
+  meta?: Record<string, unknown>;
 }
 
 export interface ProductivePerson {
