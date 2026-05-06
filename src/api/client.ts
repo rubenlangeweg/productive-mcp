@@ -978,6 +978,9 @@ export class ProductiveAPIClient {
     if (params?.project_id) {
       queryParams.append('filter[project_id]', params.project_id);
     }
+    // Tool-side schema unifies bookings on `after`/`before` to match every other
+    // list endpoint; Productive expects the resource-specific
+    // `started_on_after` / `started_on_before` filter keys, so translate here.
     if (params?.after) {
       queryParams.append('filter[started_on_after]', params.after);
     }
