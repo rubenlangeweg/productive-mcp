@@ -1,5 +1,5 @@
 import type { Requester } from './_requester.js';
-import type { ProductiveDeal, ProductiveResponse } from '../types.js';
+import type { ProductiveDeal, ProductiveResponse, ProductiveSingleResponse } from '../types.js';
 import { appendFilter, appendPagination, withQuery } from './_query.js';
 
 export interface ListProjectDealsParams {
@@ -8,6 +8,13 @@ export interface ListProjectDealsParams {
   budget_type?: number;
   limit?: number;
   page?: number;
+}
+
+export function getDeal(
+  request: Requester,
+  dealId: string
+): Promise<ProductiveSingleResponse<ProductiveDeal>> {
+  return request<ProductiveSingleResponse<ProductiveDeal>>(`deals/${dealId}?include=project`);
 }
 
 export function listProjectDeals(

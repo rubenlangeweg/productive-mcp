@@ -119,6 +119,51 @@ export async function getProjectServicesTool(
   }
 }
 
+const getDealSchema = z.object({
+  deal_id: z.string().min(1, 'Deal ID is required'),
+});
+
+export async function getDealTool(
+  client: ProductiveAPIClient,
+  args: unknown
+): Promise<{ content: Array<{ type: string; text: string }> }> {
+  try {
+    const params = getDealSchema.parse(args);
+    const response = await client.getDeal(params.deal_id);
+    const deal = response.data;
+    const a = deal.attributes;
+
+    const budgetType = a.budget_type === 1 ? 'Deal' : a.budget_type === 2 ? 'Budget' : 'Deal/Budget';
+    const projectId = deal.relationships?.project?.data?.id;
+
+    let text = `${budgetType}: ${a.name} (ID: ${deal.id})\n`;
+    if (projectId) text += `Project ID: ${projectId}\n`;
+    if (a.value != null) text += `Value: ${a.value}\n`;
+    if (a.created_at) text += `Created: ${a.created_at}\n`;
+    if (a.updated_at) text += `Updated: ${a.updated_at}\n`;
+
+    return { content: [{ type: 'text', text: text.trim() }] };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new McpError(ErrorCode.InvalidParams, `Invalid parameters: ${error.errors.map(e => e.message).join(', ')}`);
+    }
+    throw new McpError(ErrorCode.InternalError, error instanceof Error ? error.message : 'Unknown error occurred');
+  }
+}
+
+export const getDealDefinition = {
+  name: 'get_deal',
+  description: 'Get details of a specific deal or budget by its ID.',
+  annotations: { readOnlyHint: true },
+  inputSchema: {
+    type: 'object',
+    properties: {
+      deal_id: { type: 'string', description: 'The ID of the deal or budget' },
+    },
+    required: ['deal_id'],
+  },
+};
+
 export const listServicesDefinition = {
   name: 'list_services',
   description: 'List all services in the organization. NOTE: For timesheet entries, use the proper workflow instead: list_projects → list_project_deals → list_deal_services → create_time_entry. This tool shows all services but does not indicate which project/budget they belong to.',

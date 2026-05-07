@@ -27,7 +27,7 @@ import {
 } from './tools/comments.js';
 import { updateTaskStatusTool, updateTaskStatusDefinition } from './tools/task-status.js';
 import { listWorkflowStatusesTool, listWorkflowStatusesDefinition } from './tools/workflow-statuses.js';
-import { listTimeEntriesTool, createTimeEntryTool, listServicesTool, getProjectServicesTool, listProjectDealsTool, listDealServicesTool, listTimeEntriesDefinition, createTimeEntryDefinition, listServicesDefinition, getProjectServicesDefinition, listProjectDealsDefinition, listDealServicesDefinition, updateTimeEntryTool, updateTimeEntryDefinition, deleteTimeEntryTool, deleteTimeEntryDefinition } from './tools/time-entries.js';
+import { listTimeEntriesTool, createTimeEntryTool, listServicesTool, getProjectServicesTool, listProjectDealsTool, listDealServicesTool, getDealTool, listTimeEntriesDefinition, createTimeEntryDefinition, listServicesDefinition, getProjectServicesDefinition, listProjectDealsDefinition, listDealServicesDefinition, getDealDefinition, updateTimeEntryTool, updateTimeEntryDefinition, deleteTimeEntryTool, deleteTimeEntryDefinition } from './tools/time-entries.js';
 import { updateTaskSprint, updateTaskSprintTool } from './tools/task-sprint.js';
 import { moveTaskToList, moveTaskToListTool } from './tools/task-list-move.js';
 import { addToBacklog, addToBacklogTool } from './tools/task-backlog.js';
@@ -249,6 +249,7 @@ export function buildServer(): McpServer {
   registerTool(createTimeEntryDefinition, (args) =>
     createTimeEntryTool(apiClient, args, config)
   );
+  registerTool(getDealDefinition, (args) => getDealTool(apiClient, args));
   registerTool(listProjectDealsDefinition, (args) => listProjectDealsTool(apiClient, args));
   registerTool(listDealServicesDefinition, (args) => listDealServicesTool(apiClient, args));
   registerTool(listServicesDefinition, (args) => listServicesTool(apiClient, args));
@@ -270,9 +271,9 @@ export function buildServer(): McpServer {
       inputSchema: jsonSchemaToZodShape(taskRepositionDefinition.inputSchema),
     },
     async (args: unknown) => {
-      const a = args as { taskId?: string } | undefined;
-      if (!a?.taskId) {
-        throw new Error('taskId is required for task repositioning');
+      const a = args as { task_id?: string } | undefined;
+      if (!a?.task_id) {
+        throw new Error('task_id is required for task repositioning');
       }
       return (await taskRepositionTool(
         apiClient,

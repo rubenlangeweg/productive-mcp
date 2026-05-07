@@ -365,6 +365,9 @@ export class ProductiveAPIClient {
   }
 
   // ─── Deals & services ──────────────────────────────────────────────────────
+  getDeal(dealId: string): Promise<ProductiveSingleResponse<ProductiveDeal>> {
+    return deals.getDeal(this.request, dealId);
+  }
   listProjectDeals(
     params: deals.ListProjectDealsParams
   ): Promise<ProductiveResponse<ProductiveDeal>> {
